@@ -1,4 +1,4 @@
-from rpython.rlib import rgc, jit, types
+from rpython.rlib import rgc, types
 from rpython.rtyper.debug import ll_assert
 from rpython.rlib.signature import signature
 from rpython.rtyper.error import TyperError
@@ -195,7 +195,6 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
-@jit.look_inside_iff(lambda l, newsize, overallocate: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
@@ -238,7 +237,6 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.items = newitems
 
-@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 def _ll_list_resize_hint(l, newsize):
     """Ensure l.items has room for at least newsize elements without
     setting l.length to newsize.
@@ -270,7 +268,7 @@ def _ll_list_resize_really(l, newsize, overallocate):
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
 
-@jit.dont_look_inside
+
 def _ll_list_resize(l, newsize):
     """Called only in special cases.  Forces the allocated and actual size
     of the list to be 'newsize'."""
@@ -284,12 +282,8 @@ def _ll_list_resize_ge(l, newsize):
     then this is a very fast operation.
     """
     cond = len(l.items) < newsize
-    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
-        if cond:
-            _ll_list_resize_hint_really(l, newsize, True)
-    else:
-        jit.conditional_call(cond,
-                             _ll_list_resize_hint_really, l, newsize, True)
+    if cond:
+        _ll_list_resize_hint_really(l, newsize, True)
     l.length = newsize
 
 def _ll_list_resize_le(l, newsize):
@@ -299,12 +293,8 @@ def _ll_list_resize_le(l, newsize):
     """
     cond = newsize < (len(l.items) >> 1) - 5
     # note: overallocate=False should be safe here
-    if jit.isconstant(len(l.items)) and jit.isconstant(newsize):
-        if cond:
-            _ll_list_resize_hint_really(l, newsize, False)
-    else:
-        jit.conditional_call(cond, _ll_list_resize_hint_really, l, newsize,
-                             False)
+    if cond:
+        _ll_list_resize_hint_really(l, newsize, False)
     l.length = newsize
 
 def ll_append_noresize(l, newitem):

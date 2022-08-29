@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
-from rpython.rlib import rgc, jit, types
+from rpython.rlib import rgc, types
 from rpython.rtyper.debug import ll_assert
 from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
@@ -488,12 +488,9 @@ def _null_of_type(T):
 
 def ll_alloc_and_set(LIST, count, item):
     count = int_force_ge_zero(count)
-    if jit.we_are_jitted():
-        return _ll_alloc_and_set_jit(LIST, count, item)
-    else:
-        return _ll_alloc_and_set_nojit(LIST, count, item)
+    return _ll_alloc_and_set(LIST, count, item)
 
-def _ll_alloc_and_set_nojit(LIST, count, item):
+def _ll_alloc_and_set(LIST, count, item):
     l = LIST.ll_newlist(count)
     if malloc_zero_filled and _ll_zero_or_null(item):
         return l
@@ -502,40 +499,6 @@ def _ll_alloc_and_set_nojit(LIST, count, item):
         l.ll_setitem_fast(i, item)
         i += 1
     return l
-
-def _ll_alloc_and_set_jit(LIST, count, item):
-    if _ll_zero_or_null(item):
-        # 'item' is zero/null.  Do the list allocation with the
-        # function _ll_alloc_and_clear(), which the JIT knows about.
-        return _ll_alloc_and_clear(LIST, count)
-    else:
-        # 'item' is not zero/null.  Do the list allocation with the
-        # function _ll_alloc_and_set_nonnull().  That function has
-        # a JIT marker to unroll it, but only if the 'count' is
-        # a not-too-large constant.
-        return _ll_alloc_and_set_nonnull(LIST, count, item)
-
-@jit.oopspec("newlist_clear(count)")
-def _ll_alloc_and_clear(LIST, count):
-    l = LIST.ll_newlist(count)
-    if malloc_zero_filled:
-        return l
-    zeroitem = _null_of_type(LIST.ITEM)
-    i = 0
-    while i < count:
-        l.ll_setitem_fast(i, zeroitem)
-        i += 1
-    return l
-
-@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 137)
-def _ll_alloc_and_set_nonnull(LIST, count, item):
-    l = LIST.ll_newlist(count)
-    i = 0
-    while i < count:
-        l.ll_setitem_fast(i, item)
-        i += 1
-    return l
-
 
 # return a nullptr() if lst is a list of pointers it, else None.
 def ll_null_item(lst):
@@ -569,7 +532,6 @@ def ll_copy(RESLIST, l):
     new_lst = RESLIST.ll_newlist(length)
     ll_arraycopy(l, new_lst, 0, 0, length)
     return new_lst
-# no oopspec -- the function is inlined by the JIT
 
 def ll_len(l):
     return l.ll_length()
@@ -577,7 +539,6 @@ def ll_len(l):
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
     return bool(l) and l.ll_length() != 0
-# no oopspec -- the function is inlined by the JIT
 
 def ll_len_foldable(l):
     return l.ll_length()
@@ -585,7 +546,6 @@ ll_len_foldable.oopspec = 'list.len_foldable(l)'
 
 def ll_list_is_true_foldable(l):
     return bool(l) and ll_len_foldable(l) != 0
-# no oopspec -- the function is inlined by the JIT
 
 def ll_append(l, newitem):
     length = l.ll_length()
@@ -610,7 +570,6 @@ def ll_concat(RESLIST, l1, l2):
     ll_arraycopy(l1, l, 0, 0, len1)
     ll_arraycopy(l2, l, 0, len1, len2)
     return l
-# no oopspec -- the function is inlined by the JIT
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
@@ -675,7 +634,6 @@ def ll_pop(func, l, index):
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
-@jit.look_inside_iff(lambda l: jit.isvirtual(l))
 def ll_reverse(l):
     length = l.ll_length()
     i = 0
@@ -694,7 +652,6 @@ def ll_getitem_nonneg(func, basegetitem, l, index):
             raise IndexError
     return basegetitem(l, index)
 ll_getitem_nonneg._always_inline_ = True
-# no oopspec -- the function is inlined by the JIT
 
 def ll_getitem(func, basegetitem, l, index):
     if func is dum_checkidx:
@@ -714,7 +671,6 @@ def ll_getitem(func, basegetitem, l, index):
             index += l.ll_length()
             ll_assert(index >= 0, "negative list getitem index out of bound")
     return basegetitem(l, index)
-# no oopspec -- the function is inlined by the JIT
 
 def ll_getitem_fast(l, index):
     return l.ll_getitem_fast(index)
@@ -732,7 +688,6 @@ def ll_setitem_nonneg(func, l, index, newitem):
             raise IndexError
     l.ll_setitem_fast(index, newitem)
 ll_setitem_nonneg._always_inline_ = True
-# no oopspec -- the function is inlined by the JIT
 
 def ll_setitem(func, l, index, newitem):
     if func is dum_checkidx:
@@ -747,7 +702,6 @@ def ll_setitem(func, l, index, newitem):
             index += l.ll_length()
             ll_assert(index >= 0, "negative list setitem index out of bound")
     l.ll_setitem_fast(index, newitem)
-# no oopspec -- the function is inlined by the JIT
 
 @enforceargs(None, None, int)
 def ll_delitem_nonneg(func, l, index):
@@ -764,7 +718,6 @@ def ll_delitem_nonneg(func, l, index):
     if null is not None:
         l.ll_setitem_fast(newlength, null)
     l._ll_resize_le(newlength)
-# no oopspec -- the function is inlined by the JIT
 
 def ll_delitem(func, l, index):
     if func is dum_checkidx:
@@ -779,7 +732,6 @@ def ll_delitem(func, l, index):
             index += l.ll_length()
             ll_assert(index >= 0, "negative list delitem index out of bound")
     ll_delitem_nonneg(dum_nocheck, l, index)
-# no oopspec -- the function is inlined by the JIT
 
 def ll_extend(l1, l2):
     len1 = l1.ll_length()
@@ -814,7 +766,6 @@ def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
-# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_str_slice_startstop(lst, s, getstrlen, getstritem,
                                        start, stop):
@@ -840,7 +791,6 @@ def ll_extend_with_str_slice_startstop(lst, s, getstrlen, getstritem,
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
-# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
     len1 = lst.ll_length()
@@ -860,7 +810,6 @@ def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
         lst.ll_setitem_fast(j, c)
         i += 1
         j += 1
-# not inlined by the JIT -- contains a loop
 
 def ll_extend_with_char_count(lst, char, count):
     if count <= 0:
@@ -901,7 +850,6 @@ def ll_listslice_startstop(RESLIST, l1, start, stop):
     l = RESLIST.ll_newlist(newlength)
     ll_arraycopy(l1, l, start, 0, newlength)
     return l
-# no oopspec -- the function is inlined by the JIT
 
 def ll_listslice_minusone(RESLIST, l1):
     newlength = l1.ll_length() - 1
@@ -909,10 +857,7 @@ def ll_listslice_minusone(RESLIST, l1):
     l = RESLIST.ll_newlist(newlength)
     ll_arraycopy(l1, l, 0, 0, newlength)
     return l
-# no oopspec -- the function is inlined by the JIT
 
-@jit.look_inside_iff(lambda l, start: jit.isconstant(start) and jit.isvirtual(l))
-@jit.oopspec('list.delslice_startonly(l, start)')
 def ll_listdelslice_startonly(l, start):
     ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
     ll_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
@@ -970,13 +915,12 @@ def ll_listsetslice(l1, start, stop, l2):
 #  Comparison.
 
 def listeq_unroll_case(l1, l2, eqfn):
-    if jit.isvirtual(l1) and l1.ll_length() < 10:
+    if l1.ll_length() < 10:
         return True
-    if jit.isvirtual(l2) and l2.ll_length() < 10:
+    if l2.ll_length() < 10:
         return True
     return False
 
-@jit.look_inside_iff(listeq_unroll_case)
 def ll_listeq(l1, l2, eqfn):
     if not l1 and not l2:
         return True
@@ -996,7 +940,6 @@ def ll_listeq(l1, l2, eqfn):
                 return False
         j += 1
     return True
-# not inlined by the JIT -- contains a loop
 
 def ll_listcontains(lst, obj, eqfn):
     lng = lst.ll_length()
@@ -1010,7 +953,6 @@ def ll_listcontains(lst, obj, eqfn):
                 return True
         j += 1
     return False
-# not inlined by the JIT -- contains a loop
 
 def ll_listindex(lst, obj, eqfn):
     lng = lst.ll_length()
@@ -1024,7 +966,6 @@ def ll_listindex(lst, obj, eqfn):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
-# not inlined by the JIT -- contains a loop
 
 def ll_listremove(lst, obj, eqfn):
     index = ll_listindex(lst, obj, eqfn) # raises ValueError if obj not in lst
@@ -1049,8 +990,6 @@ def ll_inplace_mul(l, factor):
     return res
 ll_inplace_mul.oopspec = 'list.inplace_mul(l, factor)'
 
-@jit.look_inside_iff(lambda _, l, factor: jit.isvirtual(l) and
-                     jit.isconstant(factor) and factor < 10)
 def ll_mul(RESLIST, l, factor):
     length = l.ll_length()
     if factor < 0:
@@ -1065,4 +1004,3 @@ def ll_mul(RESLIST, l, factor):
         ll_arraycopy(l, res, 0, j, length)
         j += length
     return res
-# not inlined by the JIT -- contains a loop

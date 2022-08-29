@@ -30,12 +30,9 @@ With this setup, we have a very fast way to release/acquire the GIL:
      are done. If rpy_fastgil was NOT 0, the compare_and_swap fails, so you
      must go through the slow path in RPyGilAcquireSlowPath
 
-This fast path is implemented in two places:
+This fast path is implemented by:
 
   * RPyGilAcquire, to be called by general RPython code
-
-  * By native code emitted by the JIT around external calls; look e.g. to
-        rpython.jit.backend.x86.callbuilder:move_real_result_and_call_reacqgil_addr
 
 
 The slow path works as follows:

@@ -16,10 +16,6 @@ Glossary
       Code generator that converts an :doc:`rpython` program to a :ref:`target
       language <try-out-the-translator>` using the :term:`RPython toolchain`.
 
-   compile-time
-      In the context of the :term:`JIT`, compile time is when the JIT is
-      generating machine code "just in time".
-
    external function
       Functions that we don't want to implement in Python for various
       reasons (e.g. they need to make calls into the OS) and whose
@@ -28,12 +24,6 @@ Glossary
    garbage collection framework
       Code that makes it possible to write :doc:`RPython's garbage collectors <garbage_collection>`
       in Python itself.
-
-   guard
-      a small test that checks if assumptions the JIT makes during tracing are still true
-
-   JIT
-      :doc:`just in time compiler <jit/index>`.
 
    llinterpreter
       Piece of code that is able to interpret flow graphs.  This is very
@@ -61,11 +51,6 @@ Glossary
       global (i.e. prebuilt) lists and dictionaries are supposed to be
       immutable ("prebuilt constant" is sometimes abbreviated to "pbc").
 
-   promotion
-      :term:`JIT` terminology.  *promotion* is a way of "using" a :term:`run-time`
-      value at :term:`compile-time`, essentially by deferring compilation
-      until the run-time value is known. See if :doc:`the jit docs <jit/index>` help.
-
    RPython
       :doc:`rpython`, a limited subset of the Python_ language.
       The limitations make :term:`type inference` possible.
@@ -80,10 +65,6 @@ Glossary
       graph into one that fits the model of the target platform/:term:`backend`
       using either the :term:`lltypesystem` or the :term:`ootypesystem`.
 
-   run-time
-      In the context of the :term:`JIT`, run time is when the code the JIT has
-      generated is executing.
-
    specialization
       A way of controlling how a specific function is handled by the
       :term:`annotator`.  One specialization is to treat calls to a function
@@ -92,10 +73,6 @@ Glossary
 
    transformation
       Code that modifies flowgraphs to weave in translation aspects
-
-   translation-time
-      In the context of the :term:`JIT`, translation time is when the PyPy
-      source is being analyzed and the JIT itself is being created.
 
    translator
      :ref:`Tool <try-out-the-translator>` based on the PyPy interpreter which can translate

@@ -491,12 +491,6 @@ class FunctionCodeGenerator(object):
         fnexpr = '((%s)%s)' % (cdecl(typename, ''), self.expr(fnaddr))
         return self.generic_call(FUNC, fnexpr, op.args[1:], op.result)
 
-    def OP_JIT_CONDITIONAL_CALL(self, op):
-        return 'abort();  /* jit_conditional_call */'
-
-    def OP_JIT_CONDITIONAL_CALL_VALUE(self, op):
-        return 'abort();  /* jit_conditional_call_value */'
-
     # low-level operations
     def generic_get(self, op, sourceexpr, accessing_mem=True):
         T = self.lltypemap(op.result)
@@ -985,31 +979,6 @@ class FunctionCodeGenerator(object):
     def OP_IS_EARLY_CONSTANT(self, op):
         return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)
 
-    def OP_JIT_MARKER(self, op):
-        return '/* JIT_MARKER %s */' % op
-
-    def OP_JIT_FORCE_VIRTUALIZABLE(self, op):
-        return '/* JIT_FORCE_VIRTUALIZABLE %s */' % op
-
-    def OP_JIT_FORCE_VIRTUAL(self, op):
-        return '%s = %s; /* JIT_FORCE_VIRTUAL */' % (self.expr(op.result),
-                                                     self.expr(op.args[0]))
-
-    def OP_JIT_IS_VIRTUAL(self, op):
-        return '%s = 0; /* JIT_IS_VIRTUAL */' % (self.expr(op.result),)
-
-    def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
-        return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
-
-    def OP_JIT_FFI_SAVE_RESULT(self, op):
-        return '/* JIT_FFI_SAVE_RESULT %s */' % op
-
-    def OP_JIT_ENTER_PORTAL_FRAME(self, op):
-        return '/* JIT_ENTER_PORTAL_FRAME %s */' % op
-
-    def OP_JIT_LEAVE_PORTAL_FRAME(self, op):
-        return '/* JIT_LEAVE_PORTAL_FRAME %s */' % op
-
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)
         return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (
@@ -1068,9 +1037,6 @@ class FunctionCodeGenerator(object):
                 self.expr(op.result),
                 cdecl(typename, ''),
                 fieldname)
-        else:
-            # this is used for the fall-back path in the JIT
-            return self.OP_THREADLOCALREF_LOAD(op)
 
     def OP_THREADLOCALREF_LOAD(self, op):
         typename = self.db.gettype(op.result.concretetype)

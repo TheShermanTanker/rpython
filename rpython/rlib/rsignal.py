@@ -85,14 +85,8 @@ pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
 pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
                             releasegil=False)
 
-# don't use rffi.LONGP because the JIT doesn't support raw arrays so far
-struct_name = 'pypysig_long_struct'
-LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
-                            hints={'c_name' : struct_name, 'external' : 'C'})
-del struct_name
-
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
-                                    lltype.Ptr(LONG_STRUCT), _nowrapper=True,
+                                    lltype.Signed, _nowrapper=True,
                                     elidable_function=True)
 pypysig_check_and_reset = external('pypysig_check_and_reset', [],
                                    lltype.Bool, _nowrapper=True)

@@ -1,6 +1,6 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
-from rpython.rlib import jit, rposix, rgc
+from rpython.rlib import rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rlib.rvmprof.dummy import DummyVMProf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -18,8 +18,6 @@ PLAT_WINDOWS = sys.platform == 'win32'
 # keep in sync with vmprof_stack.h
 VMPROF_CODE_TAG = 1
 VMPROF_BLACKHOLE_TAG = 2
-VMPROF_JITTED_TAG = 3
-VMPROF_JITTING_TAG = 4
 VMPROF_GC_TAG = 5
 
 class VMProfError(Exception):
@@ -56,7 +54,7 @@ class VMProf(object):
     def _cleanup_(self):
         self.is_enabled = False
 
-    @jit.dont_look_inside
+    
     @specialize.argtype(1)
     def register_code(self, code, full_name_func):
         """Register the code object.  Call when a new code object is made.
@@ -128,7 +126,7 @@ class VMProf(object):
         prev = self._gather_all_code_objs
         self._gather_all_code_objs = gather_all_code_objs
 
-    @jit.dont_look_inside
+    
     def enable(self, fileno, interval, memory=0, native=0, real_time=0):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
@@ -153,7 +151,7 @@ class VMProf(object):
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
-    @jit.dont_look_inside
+    
     def disable(self):
         """Disable vmprof.
         Raises VMProfError if something goes wrong.
@@ -217,10 +215,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
         except cintf.VMProfPlatformUnsupported:
             return func
 
-        @jit.oopspec("rvmprof.jitted(unique_id)")
-        def decorated_jitted_function(unique_id, *args):
-            return func(*args)
-
         def decorated_function(*args):
             unique_id = get_code_fn(*args)._vmprof_unique_id
             unique_id = rffi.cast(lltype.Signed, unique_id)
@@ -233,16 +227,13 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             # Current fix: vmprof will discard this sample. (happens
             # very infrequently)
             #
-            if not jit.we_are_jitted():
-                x = enter_code(unique_id)
-                # (1) signal here
-                try:
-                    return func(*args)
-                finally:
-                    # (2) signal here
-                    leave_code(x)
-            else:
-                return decorated_jitted_function(unique_id, *args)
+            x = enter_code(unique_id)
+            # (1) signal here
+            try:
+                return func(*args)
+            finally:
+                # (2) signal here
+                leave_code(x)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         decorated_function.c_name = '__vmprof_eval_vmprof'

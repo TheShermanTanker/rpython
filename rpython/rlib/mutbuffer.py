@@ -4,7 +4,6 @@ from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.buffer import GCBuffer
-from rpython.rlib import jit
 
 @GCBuffer.decorate
 class MutableStringBuffer(GCBuffer):

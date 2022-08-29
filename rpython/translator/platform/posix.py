@@ -47,8 +47,7 @@ class BasePosix(Platform):
         return Platform._link_args_from_eci(self, eci, standalone)
 
     def _exportsymbols_link_flags(self):
-        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
-                or sys.platform == 'cygwin'):
+        if self.cc == 'mingw32' or os.name=='nt' or sys.platform == 'cygwin':
             return ["-Wl,--export-all-symbols"]
         return ["-Wl,--export-dynamic"]
 
@@ -104,12 +103,6 @@ class BasePosix(Platform):
             ret = ''
         else:
             ret = ret.out.strip()
-        if not ret:
-            # some gcc, like on redhat, return ''
-            # the following may fail on non-JIT builds
-            from rpython.jit.backend import detect_cpu
-            model = detect_cpu.autodetect()
-            ret = model.replace('-', '_') + '-linux-gnu'
         if not ret:
             raise ValueError("cannot detect multiarch value on this platform")
         return ret

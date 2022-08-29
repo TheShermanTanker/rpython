@@ -12,7 +12,7 @@ from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.objectmodel import we_are_translated, dont_inline
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import rgc, jit, rposix
+from rpython.rlib import rgc, rposix
 from rpython.rlib.rarithmetic import r_uint64, r_uint32, r_uint
 from rpython.rlib.rawstorage import misaligned_is_fine
 from rpython.rlib.nonconst import NonConstant
@@ -337,7 +337,7 @@ def _siphash24_with_key(addr_in, size, k0, k1, SZ=1):
     return (v0 ^ v1) ^ (v2 ^ v3)
 
 
-@jit.dont_look_inside
+
 def siphash24(s):
     """'s' is a normal string.  Returns its siphash-2-4 as a r_uint64.
     Don't forget to cast the result to a regular integer if needed,
@@ -346,7 +346,7 @@ def siphash24(s):
     with rffi.scoped_nonmovingbuffer(s) as p:
         return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
 
-@jit.dont_look_inside
+
 def siphash24_with_key(s, k0, k1=0):
     """'s' is a normal string.  k0 and k1 are the seed keys
     """

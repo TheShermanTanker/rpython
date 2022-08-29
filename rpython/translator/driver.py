@@ -10,8 +10,7 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.entrypoint import secondary_entrypoints,\
-     annotated_jit_entrypoints
+from rpython.rlib.entrypoint import secondary_entrypoints
 
 import py
 from rpython.tool.ansi_print import AnsiLogger
@@ -116,14 +115,13 @@ class TranslationDriver(SimpleTaskEngine):
                 expose_task(task)
             else:
                 task, postfix = task.split('_')
-                if task in ('rtype', 'backendopt', 'llinterpret',
-                            'pyjitpl'):
+                if task in ('rtype', 'backendopt', 'llinterpret'):
                     if ts:
                         if ts == postfix:
                             expose_task(task, explicit_task)
                     else:
                         expose_task(explicit_task)
-                elif task in ('source', 'compile', 'run'):
+                elif task in ('translate', 'generate', 'run'):
                     if backend:
                         if backend == postfix:
                             expose_task(task, explicit_task)
@@ -281,7 +279,7 @@ class TranslationDriver(SimpleTaskEngine):
             if not func.task_idempotent:
                 self.done[goal] = True
             if instrument:
-                self.proceed('compile')
+                self.proceed('generate')
                 assert False, 'we should not get here'
         finally:
             try:
@@ -344,44 +342,13 @@ class TranslationDriver(SimpleTaskEngine):
         rtyper = self.translator.buildrtyper()
         rtyper.specialize(dont_simplify_again=True)
 
-    @taskdef([RTYPE], "JIT compiler generation")
-    def task_pyjitpl_lltype(self):
-        """ Generate bytecodes for JIT and flow the JIT helper functions
-        lltype version
-        """
-        from rpython.jit.codewriter.policy import JitPolicy
-        get_policy = self.extra.get('jitpolicy', None)
-        if get_policy is None:
-            self.jitpolicy = JitPolicy()
-        else:
-            self.jitpolicy = get_policy(self)
-        #
-        from rpython.jit.metainterp.warmspot import apply_jit
-        apply_jit(self.translator, policy=self.jitpolicy,
-                  backend_name=self.config.translation.jit_backend, inline=True)
-        #
-        self.log.info("the JIT compiler was generated")
-
-    @taskdef([RTYPE], "test of the JIT on the llgraph backend")
-    def task_jittest_lltype(self):
-        """ Run with the JIT on top of the llgraph backend
-        """
-        # parent process loop: spawn a child, wait for the child to finish,
-        # print a message, and restart
-        from rpython.translator.goal import unixcheckpoint
-        unixcheckpoint.restartable_point(auto='run')
-        # load the module rpython/jit/tl/jittest.py, which you can hack at
-        # and restart without needing to restart the whole translation process
-        from rpython.jit.tl import jittest
-        jittest.jittest(self)
-
     BACKENDOPT = 'backendopt_lltype'
-    @taskdef([RTYPE, '??pyjitpl_lltype', '??jittest_lltype'], "lltype back-end optimisations")
+    @taskdef([RTYPE], "lltype back-end optimisations")
     def task_backendopt_lltype(self):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator, replace_we_are_jitted=True)
+        backend_optimizations(self.translator)
 
 
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
@@ -403,6 +370,23 @@ class TranslationDriver(SimpleTaskEngine):
                 raise Exception(str(e) + '\n' + i)
 
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
+        "Translating to llvm ir",
+        earlycheck = possibly_check_for_boehm)
+    def task_translate_llvm(self):
+        """ Translate to llvm ir (.ll)
+        """
+
+    @taskdef(['translate_llvm'], "Combining translated llvm ir")
+    def task_combine_llvm(self):
+        """ Combine and optimize translated + supporting llvm ir (.ll) to condensed bitcode (.bc)
+        """
+
+    @taskdef(['combine_llvm'], "Generating from bitcode")
+    def task_generate_llvm(self):
+        """ Generate executable(s) from optimized bitcode (.bc)
+        """
+
+    @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
         "Creating database for generating c source",
         earlycheck = possibly_check_for_boehm)
     def task_database_c(self):
@@ -420,11 +404,10 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.c.genc import CStandaloneBuilder
             cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
                                           config=self.config, gchooks=gchooks,
-                      secondary_entrypoints=
-                      self.secondary_entrypoints + annotated_jit_entrypoints)
+                      secondary_entrypoints=self.secondary_entrypoints)
         else:
             from rpython.translator.c.dlltool import CLibraryBuilder
-            functions = [(self.entry_point, None)] + self.secondary_entrypoints + annotated_jit_entrypoints
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints
             cbuilder = CLibraryBuilder(self.translator, self.entry_point,
                                        functions=functions,
                                        name='libtesting',

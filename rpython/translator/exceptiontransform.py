@@ -164,15 +164,13 @@ class ExceptionTransformer(object):
             "RPyRaiseException",
             self.noinline(rpyexc_raise),
             [self.lltype_of_exception_type, self.lltype_of_exception_value],
-            lltype.Void,
-            jitcallkind='rpyexc_raise') # for the JIT
+            lltype.Void)
 
         self.rpyexc_reraise_ptr = self.build_func(
             "RPyReRaiseException",
             rpyexc_reraise,
             [self.lltype_of_exception_type, self.lltype_of_exception_value],
-            lltype.Void,
-            jitcallkind='rpyexc_raise') # for the JIT
+            lltype.Void)
 
         self.rpyexc_fetch_exception_ptr = self.build_func(
             "RPyFetchException",

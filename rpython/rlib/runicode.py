@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import jit, nonconst
+from rpython.rlib import nonconst
 
 
 # We always use MAXUNICODE = 0x10ffff when unicode objects use utf8,
@@ -128,7 +128,7 @@ _utf8_code_length = ''.join(map(chr, [
 
 # if you can't use the @elidable version, call str_decode_utf_8_impl()
 # directly
-@jit.elidable
+
 def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None, allow_surrogates=allow_surrogate_by_default):
     if errorhandler is None:
@@ -317,8 +317,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
             pos += 4
 
     return result.build(), pos
-str_decode_utf_8_elidable = jit.elidable(
-    func_with_new_name(str_decode_utf_8_impl, "str_decode_utf_8_elidable"))
+str_decode_utf_8_elidable = func_with_new_name(str_decode_utf_8_impl, "str_decode_utf_8_elidable")
 
 def _encodeUCS4(result, ch):
     # Encode UCS4 Unicode ordinals
@@ -329,7 +328,7 @@ def _encodeUCS4(result, ch):
 
 # if you can't use the @elidable version, call unicode_encode_utf_8_impl()
 # directly
-@jit.elidable
+
 def unicode_encode_utf_8(s, size, errors, errorhandler=None,
                          allow_surrogates=allow_surrogate_by_default):
     # In this function, allow_surrogates can be:
@@ -407,10 +406,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
             else:
                 _encodeUCS4(result, ch)
     return result.build()
-unicode_encode_utf_8_elidable = jit.elidable(
-    enforceargs(s=unicode, allow_surrogates=bool)(
-    func_with_new_name(unicode_encode_utf_8_impl,
-                       "unicode_encode_utf_8_elidable")))
+unicode_encode_utf_8_elidable = enforceargs(s=unicode,
+    allow_surrogates=bool)(
+    func_with_new_name(unicode_encode_utf_8_impl, "unicode_encode_utf_8_elidable"))
 
 def unicode_encode_utf8sp(s, size):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -1253,7 +1251,7 @@ def str_decode_ascii(s, size, errors, final=False,
     return result.build(), pos
 
 # An elidable version, for a subset of the cases
-@jit.elidable
+
 def fast_str_decode_ascii(s):
     result = UnicodeBuilder(len(s))
     for c in s:
@@ -1573,7 +1571,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
         # Unicode errors
         return _unicode_escape(s, size)
 
-    @jit.elidable
+    
     def _unicode_escape(s, size):
         result = STRING_BUILDER(size)
 

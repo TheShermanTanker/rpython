@@ -43,12 +43,6 @@ is not necessary.  PyPy's goal is to give weight to this claim - at least
 as far as language implementation is concerned - showing an approach
 to the ``l * o * p`` problem that does not rely on standardization.
 
-The most ambitious part of this goal is to :doc:`generate Just-In-Time
-Compilers <jit/index>` in a language-independent way, instead of only translating
-the source interpreter into an interpreter for the target platform.
-This is an area of language implementation that is commonly considered
-very challenging because of the involved complexity.
-
 
 Architecture
 ------------
@@ -110,9 +104,6 @@ Further reading
 
  * :doc:`The translation document <translation>`: a detailed description of our
    translation process.
-
- * :doc:`JIT Generation in PyPy <jit/index>`, describing how we produce a Just-in-time
-   Compiler from an interpreter.
 
  * A tutorial of how to use the :doc:`RPython toolchain <translation>` to `implement your own
    interpreter`_.

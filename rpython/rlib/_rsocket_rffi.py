@@ -2,7 +2,6 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem.rffi import CCHARP, CONST_CCHARP
-from rpython.rlib import jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
@@ -1257,32 +1256,32 @@ else:
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)
-recvmsg = jit.dont_look_inside(rffi.llexternal(
+recvmsg = rffi.llexternal(
     "recvmsg_implementation",
     [rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
         rffi.INTP, rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
         rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP], rffi.INT,
-    save_err=SAVE_ERR, compilation_info=compilation_info))
+    save_err=SAVE_ERR, compilation_info=compilation_info)
 
-memcpy_from_CCHARP_at_offset = jit.dont_look_inside(rffi.llexternal("memcpy_from_CCHARP_at_offset_and_size",
-                                    [rffi.CCHARP, rffi.CCHARPP,rffi.INT,rffi.INT],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
-freeccharp = jit.dont_look_inside(rffi.llexternal("free_ptr_to_charp",
-                                    [rffi.CCHARPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
-freesignedp = jit.dont_look_inside(rffi.llexternal("free_pointer_to_signedp",
-                                    [rffi.SIGNEDPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
+memcpy_from_CCHARP_at_offset = rffi.llexternal("memcpy_from_CCHARP_at_offset_and_size",
+                                    [rffi.CCHARP, rffi.CCHARPP,rffi.INT,rffi.INT],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info)
+freeccharp = rffi.llexternal("free_ptr_to_charp",
+                                    [rffi.CCHARPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info)
+freesignedp = rffi.llexternal("free_pointer_to_signedp",
+                                    [rffi.SIGNEDPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info)
 
 send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
                        ssize_t, save_err=SAVE_ERR)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t,
                   save_err=SAVE_ERR)
-sendmsg = jit.dont_look_inside(rffi.llexternal("sendmsg_implementation",
+sendmsg = rffi.llexternal("sendmsg_implementation",
                                [rffi.INT, sockaddr_ptr, socklen_t, rffi.SIGNEDP, rffi.CCHARPP, rffi.INT,
                                 rffi.SIGNEDP, rffi.SIGNEDP, rffi.CCHARPP, rffi.SIGNEDP, rffi.INT, rffi.INT],
                                rffi.INT, save_err=SAVE_ERR,
-                               compilation_info=compilation_info))
-CMSG_SPACE = jit.dont_look_inside(rffi.llexternal("CMSG_SPACE_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info))
-CMSG_LEN = jit.dont_look_inside(rffi.llexternal("CMSG_LEN_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info))
+                               compilation_info=compilation_info)
+CMSG_SPACE = rffi.llexternal("CMSG_SPACE_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info)
+CMSG_LEN = rffi.llexternal("CMSG_LEN_wrapper",[size_t], size_t, save_err=SAVE_ERR,compilation_info=compilation_info)
 
 socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT,
                           save_err=SAVE_ERR)

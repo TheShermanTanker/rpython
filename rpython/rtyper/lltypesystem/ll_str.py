@@ -1,6 +1,5 @@
 from rpython.rtyper.lltypesystem.lltype import GcArray, Array, Char, malloc
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
-from rpython.rlib import jit
 
 CHAR_ARRAY = GcArray(Char)
 
@@ -10,7 +9,6 @@ def ll_unsigned(i):
     else:
         return r_uint(i)
 
-@jit.elidable
 def ll_int2dec(val):
     from rpython.rtyper.lltypesystem.rstr import mallocstr
 
@@ -44,7 +42,6 @@ hex_chars = malloc(Array(Char), 16, immortal=True)
 for i in range(16):
     hex_chars[i] = "%x" % i
 
-@jit.elidable
 def ll_int2hex(i, addPrefix):
     from rpython.rtyper.lltypesystem.rstr import mallocstr
     temp = malloc(CHAR_ARRAY, 20)
@@ -81,7 +78,6 @@ def ll_int2hex(i, addPrefix):
         j += 1
     return result
 
-@jit.elidable
 def ll_int2oct(i, addPrefix):
     from rpython.rtyper.lltypesystem.rstr import mallocstr
     if i == 0:

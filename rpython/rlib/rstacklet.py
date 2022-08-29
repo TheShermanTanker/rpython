@@ -1,6 +1,5 @@
 import sys
 from rpython.rlib import _rffi_stacklet as _c
-from rpython.rlib import jit
 from rpython.rlib.objectmodel import fetch_translated_config
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib import rvmprof
@@ -10,7 +9,7 @@ DEBUG = False
 
 class StackletThread(object):
 
-    @jit.dont_look_inside
+    
     def __init__(self, _argument_ignored_for_backward_compatibility=None):
         self._gcrootfinder = _getgcrootfinder(fetch_translated_config())
         self._thrd = _c.newthread()
@@ -21,7 +20,7 @@ class StackletThread(object):
             assert debug.sthread is None, "multithread debug support missing"
             debug.sthread = self
 
-    @jit.dont_look_inside
+    
     def new(self, callback, arg=llmemory.NULL):
         if DEBUG:
             callback = _debug_wrapper(callback)
@@ -36,7 +35,7 @@ class StackletThread(object):
         return h
     new._annspecialcase_ = 'specialize:arg(1)'
 
-    @jit.dont_look_inside
+    
     def switch(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)

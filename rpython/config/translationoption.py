@@ -17,8 +17,6 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
 
-DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-
 IS_64_BITS = sys.maxint > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
@@ -50,9 +48,9 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype"], cmdline=None, default="lltype"),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c"], default="c",
+                 ["llvm"], default="llvm",
                  requires={
-                     "c":      [("translation.type_system", "lltype")],
+                     "llvm":      [("translation.type_system", "lltype")],
                      },
                  cmdline="-b --backend"),
 
@@ -115,21 +113,6 @@ translation_optiondescription = OptionDescription(
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
-    # JIT generation: use -Ojit to enable it
-    BoolOption("jit", "generate a JIT",
-               default=False,
-               suggests=[("translation.gc", DEFL_GC),
-                         ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
-                         ("translation.list_comprehension_operations", True)]),
-    ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "x86", "x86-without-sse2", 'arm'],
-                 default="auto", cmdline="--jit-backend"),
-    ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
-                 ["off", "oprofile"],
-                 default="off"),
-    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
-                 " of traces. Use big if you want to go bigger than "
-                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
@@ -149,8 +132,7 @@ translation_optiondescription = OptionDescription(
             default=False),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
-                 ["annotate", "rtype", "backendopt", "database", "source",
-                  "pyjitpl"],
+                 ["annotate", "rtype", "backendopt", "database", "source"],
                  default=None, cmdline="--fork-before"),
     BoolOption("dont_write_c_files",
                "Make the C backend write everyting to /dev/null. " +
@@ -272,9 +254,6 @@ translation_optiondescription = OptionDescription(
                    "stack based virtual machines (only for backends that support it)",
                    default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
-        BoolOption("replace_we_are_jitted",
-                   "Replace we_are_jitted() calls by False",
-                   default=False, cmdline=None),
         BoolOption("none",
                    "Do not run any backend optimizations",
                    requires=[('translation.backendopt.inline', False),
@@ -287,8 +266,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("platform",
                  "target platform", ['host'] + PLATFORMS, default='host',
                  cmdline='--platform',
-                 suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
-                                   ("translation.jit_backend", "arm")]}),
+                 suggests={"arm": [("translation.gcrootfinder", "shadowstack")]}),
 
     BoolOption("split_gc_address_space",
                "Ensure full separation of GC and non-GC pointers", default=False),
@@ -296,7 +274,6 @@ translation_optiondescription = OptionDescription(
                "Give an executable that writes a log file for reverse debugging",
                default=False, cmdline='--revdb',
                requires=[('translation.split_gc_address_space', True),
-                         ('translation.jit', False),
                          ('translation.gc', 'boehm'),
                          ('translation.continuation', False)]),
     BoolOption("rpython_translate",
@@ -338,7 +315,7 @@ def get_combined_translation_config(other_optdescr=None,
 
 # ____________________________________________________________
 
-OPT_LEVELS = ['0', '1', 'size', 'mem', '2', '3', 'jit']
+OPT_LEVELS = ['0', '1', 'size', 'mem', '2', '3']
 DEFAULT_OPT_LEVEL = '2'
 
 OPT_TABLE_DOC = {
@@ -348,7 +325,6 @@ OPT_TABLE_DOC = {
     'mem':  'Optimize for run-time memory usage and use a memory-saving GC.',
     '2':    'Enable most optimizations and use a high-performance GC.',
     '3':    'Enable all optimizations and use a high-performance GC.',
-    'jit':  'Enable the JIT.',
     }
 
 OPT_TABLE = {
@@ -359,7 +335,6 @@ OPT_TABLE = {
     'mem':  DEFL_GC + '  lowinline     remove_asserts    removetypeptr',
     '2':    DEFL_GC + '  extraopts',
     '3':    DEFL_GC + '  extraopts     remove_asserts',
-    'jit':  DEFL_GC + '  extraopts     jit',
     }
 
 def set_opt_level(config, level):
@@ -389,8 +364,6 @@ def set_opt_level(config, level):
             config.translation.backendopt.suggest(remove_asserts=True)
         elif word == 'extraopts':
             config.translation.suggest(withsmallfuncsets=5)
-        elif word == 'jit':
-            config.translation.suggest(jit=True)
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
         else:

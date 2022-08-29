@@ -130,13 +130,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
             self.GCClass = GCClass
 
-        if hasattr(translator, '_jit2gc'):
-            self.layoutbuilder = translator._jit2gc['layoutbuilder']
-            finished_minor_collection = translator._jit2gc.get(
-                'invoke_after_minor_collection', None)
-        else:
-            self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
-            finished_minor_collection = None
+        self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
+        finished_minor_collection = None
         self.layoutbuilder.transformer = self
         self.get_type_id = self.layoutbuilder.get_type_id
 
@@ -547,16 +542,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
-                func = getattr(gcdata.gc,
-                               'jit_remember_young_pointer_from_array',
-                               None)
-                if func is not None:
-                    # func should not be a bound method, but a real function
-                    assert isinstance(func, types.FunctionType)
-                    self.write_barrier_from_array_failing_case_ptr = \
-                                             getfn(func,
-                                                   [SomeAddress()],
-                                                   annmodel.s_None)
+
         self.malloc_nonmovable_ptr = getfn(
             GCClass.malloc_fixed_or_varsize_nonmovable,
             [s_gc, s_typeid16, annmodel.SomeInteger()],
@@ -989,11 +975,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                              resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
 
-    def gct_gc_adr_of_nursery_free(self, hop):
-        self._gc_adr_of_gc_attr(hop, 'nursery_free')
-    def gct_gc_adr_of_nursery_top(self, hop):
-        self._gc_adr_of_gc_attr(hop, 'nursery_top')
-
     def _gc_adr_of_gcdata_attr(self, hop, attrname):
         op = hop.spaceop
         ofs = llmemory.offsetof(self.c_const_gcdata.concretetype.TO,
@@ -1003,78 +984,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
-    def gct_gc_adr_of_root_stack_base(self, hop):
-        self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
 
     def gct_gc_modified_shadowstack(self, hop):
         # for stacklet
         hop.genop("direct_call", [self.root_walker.gc_modified_shadowstack_ptr])
-
-    def gct_do_malloc_fixedsize(self, hop):
-        # used by the JIT (see rpython.jit.backend.llsupport.gc)
-        op = hop.spaceop
-        [v_typeid, v_size,
-         v_has_finalizer, v_has_light_finalizer, v_contains_weakptr] = op.args
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call",
-                  [self.malloc_fixedsize_ptr, self.c_const_gc,
-                   v_typeid, v_size,
-                   v_has_finalizer, v_has_light_finalizer,
-                   v_contains_weakptr],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_do_malloc_fixedsize_clear(self, hop):
-        # used by the JIT (see rpython.jit.backend.llsupport.gc)
-        self.gct_do_malloc_fixedsize(hop)
-        if not self.malloc_zero_filled:
-            op = hop.spaceop
-            v_size = op.args[1]
-            c_after_header = rmodel.inputconst(lltype.Signed,
-                llmemory.sizeof(self.HDR))
-            v_a = op.result
-            v_clear_size = hop.genop('int_sub', [v_size, c_after_header],
-                                     resulttype=lltype.Signed)
-            self.emit_raw_memclear(hop.llops, v_clear_size, None,
-                                   c_after_header, v_a)
-
-    def gct_do_malloc_varsize(self, hop):
-        # used by the JIT (see rpython.jit.backend.llsupport.gc)
-        op = hop.spaceop
-        [v_typeid, v_length, v_size, v_itemsize,
-         v_offset_to_length] = op.args
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call",
-                  [self.malloc_varsize_ptr, self.c_const_gc,
-                   v_typeid, v_length, v_size, v_itemsize,
-                   v_offset_to_length],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_do_malloc_varsize_clear(self, hop):
-        # used by the JIT (see rpython.jit.backend.llsupport.gc)
-        self.gct_do_malloc_varsize(hop)
-        if not self.malloc_zero_filled:
-            op = hop.spaceop
-            v_num_elem = op.args[1]
-            c_basesize = op.args[2]
-            c_itemsize = op.args[3]
-            c_length_ofs = op.args[4]
-            v_a = op.result
-            # Clear the fixed-size part, which is everything after the
-            # GC header and before the length field.  This might be 0
-            # bytes long.
-            c_after_header = rmodel.inputconst(lltype.Signed,
-                llmemory.sizeof(self.HDR))
-            v_clear_size = hop.genop('int_sub', [c_length_ofs, c_after_header],
-                                     resulttype=lltype.Signed)
-            self.emit_raw_memclear(hop.llops, v_clear_size, None,
-                                   c_after_header, v_a)
-            # Clear the variable-size part
-            self.emit_raw_memclear(hop.llops, v_num_elem, c_itemsize,
-                                   c_basesize, v_a)
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop

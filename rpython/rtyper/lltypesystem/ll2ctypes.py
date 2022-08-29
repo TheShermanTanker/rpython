@@ -76,9 +76,8 @@ def do_allocation_in_far_regions():
        which helps test this module for address values that are signed or
        unsigned.
 
-       On 64-bits: reserves 10 times 2GB of address space.  This should help
-       to find 32-vs-64-bit issues in the JIT.  It is likely that objects
-       are further apart than 32 bits can represent; it is also possible
+       On 64-bits: reserves 10 times 2GB of address space.  It is likely that
+       objects are further apart than 32 bits can represent; it is also possible
        to hit the corner case of being precisely e.g. 2GB - 8 bytes apart.
 
        Avoid this function if your OS reserves actual RAM from mmap() eagerly.

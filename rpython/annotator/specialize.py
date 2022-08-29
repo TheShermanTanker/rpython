@@ -60,23 +60,16 @@ def flatten_star_args(funcdesc, args_s):
 def default_specialize(funcdesc, args_s):
     # first flatten the *args
     args_s, key, builder = flatten_star_args(funcdesc, args_s)
-    # two versions: a regular one and one for instances with 'access_directly'
-    jit_look_inside = getattr(funcdesc.pyobj, '_jit_look_inside_', True)
     # change args_s in place, "official" interface
     access_directly = False
     for i, s_obj in enumerate(args_s):
         if (isinstance(s_obj, annmodel.SomeInstance) and
             'access_directly' in s_obj.flags):
-            if jit_look_inside:
-                access_directly = True
-                key = (AccessDirect, key)
-                break
-            else:
-                new_flags = s_obj.flags.copy()
-                del new_flags['access_directly']
-                new_s_obj = annmodel.SomeInstance(s_obj.classdef, s_obj.can_be_None,
-                                              flags = new_flags)
-                args_s[i] = new_s_obj
+            new_flags = s_obj.flags.copy()
+            del new_flags['access_directly']
+            new_s_obj = annmodel.SomeInstance(s_obj.classdef, s_obj.can_be_None,
+                                          flags = new_flags)
+            args_s[i] = new_s_obj
 
     # done
     graph = funcdesc.cachedgraph(key, builder=builder)

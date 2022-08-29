@@ -100,16 +100,6 @@ class LLInterpreter(object):
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
             except Exception as e:
-                if getattr(e, '_go_through_llinterp_uncaught_', False):
-                    raise
-                log.error("AN ERROR OCCURED: %s" % (e, ))
-                self.print_traceback()
-                if self.tracer:
-                    line = str(e)
-                    if line:
-                        line = ': ' + line
-                    line = '* %s' % (e.__class__.__name__,) + line
-                    self.tracer.dump(line + '\n')
                 raise
         finally:
             LLInterpreter.current_interpreter = prev_interpreter
@@ -469,11 +459,7 @@ class LLFrame(object):
                                 KeyboardInterrupt, SystemExit,
                                 ImportError, SyntaxError)):
                 raise original[0], original[1], original[2]     # re-raise it
-            # for testing the JIT (see ContinueRunningNormally) we need
-            # to let some exceptions introduced by the JIT go through
-            # the llinterpreter uncaught
-            if getattr(exc, '_go_through_llinterp_uncaught_', False):
-                raise original[0], original[1], original[2]     # re-raise it
+            raise original[0], original[1], original[2]     # re-raise it
             extraargs = (original,)
         else:
             extraargs = ()
@@ -490,19 +476,7 @@ class LLFrame(object):
         except LLException as e:
             raise
         except Exception as e:
-            if getattr(e, '_go_through_llinterp_uncaught_', False):
-                raise
-            if getattr(obj, '_debugexc', False):
-                log.ERROR('The llinterpreter got an '
-                          'unexpected exception when calling')
-                log.ERROR('the external function %r:' % (fptr,))
-                log.ERROR('%s: %s' % (e.__class__.__name__, e))
-                if self.llinterpreter.tracer:
-                    self.llinterpreter.tracer.flush()
-                import sys
-                from rpython.translator.tool.pdbplus import PdbPlusShow
-                PdbPlusShow(None).post_mortem(sys.exc_info()[2])
-            self.make_llexception()
+            raise
 
     def find_roots(self, roots):
         #log.findroots(self.curr_block.inputargs)
@@ -564,21 +538,6 @@ class LLFrame(object):
 
     def op_debug_catch_exception(self, *args):
         pass    # xxx write debugging code here?
-
-    def op_jit_marker(self, *args):
-        pass
-
-    def op_jit_record_exact_class(self, *args):
-        pass
-
-    def op_jit_record_exact_value(self, *args):
-        pass
-
-    def op_jit_conditional_call(self, *args):
-        raise NotImplementedError("should not be called while not jitted")
-
-    def op_jit_conditional_call_value(self, *args):
-        raise NotImplementedError("should not be called while not jitted")
 
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
@@ -881,11 +840,6 @@ class LLFrame(object):
 
     def op_gc_restore_exception(self, exc):
         raise NotImplementedError("gc_restore_exception")
-
-    def op_gc_adr_of_nursery_top(self):
-        raise NotImplementedError
-    def op_gc_adr_of_nursery_free(self):
-        raise NotImplementedError
 
     def op_gc_adr_of_root_stack_base(self):
         raise NotImplementedError
@@ -1221,17 +1175,6 @@ class LLFrame(object):
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
         assert is_valid_int(x) or isinstance(x, Symbolic)
         return bool(x)
-
-    # hack for jit.codegen.llgraph
-
-    def op_check_and_clear_exc(self):
-        exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
-        assert exc_data
-        etype = exc_data.exc_type
-        evalue = exc_data.exc_value
-        exc_data.exc_type = lltype.typeOf(etype)._defl()
-        exc_data.exc_value = lltype.typeOf(evalue)._defl()
-        return bool(etype)
 
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")

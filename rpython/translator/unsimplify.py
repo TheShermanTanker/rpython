@@ -96,11 +96,7 @@ def split_block(block, index, _forcelink=None):
                 if v.concretetype is not lltype.Void:
                     raise Exception(
                         "The variable %r of type %r was not explicitly listed"
-                        " in _forcelink.  This issue can be caused by a"
-                        " jitdriver.jit_merge_point() where some variable"
-                        " containing an int or str or instance is actually"
-                        " known to be constant, e.g. always 42." % (
-                        v, v.concretetype))
+                        " in _forcelink." % ( v, v.concretetype))
                 c = Constant(None, lltype.Void)
                 w = varmap[v]
                 newop = SpaceOperation('same_as', [c], w)

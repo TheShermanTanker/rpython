@@ -14,8 +14,8 @@ def _get_compiler_type(cc, x64_flag):
         cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(x64=x64_flag)
-    elif cc.startswith('mingw') or cc == 'gcc':
-        return MingwPlatform(cc)
+    elif cc.startswith('mingw') or cc == 'clang':
+        return EmulatedPosixPlatform(cc)
     return MsvcPlatform(cc=cc, x64=x64_flag)
 
 def _get_vcver0():
@@ -347,7 +347,6 @@ class MsvcPlatform(Platform):
             linkflags = self._args_for_shared(linkflags)
         linkflags += self._exportsymbols_link_flags()
         # Make sure different functions end up at different addresses!
-        # This is required for the JIT.
         linkflags.append('/opt:noicf')
 
         def rpyrel(fpath):
@@ -627,7 +626,7 @@ class NMakefile(posix.GnuMakefile):
             defs[name] = len(self.lines)
             self.lines.append(defn)
 
-class MingwPlatform(posix.BasePosix):
+class EmulatedPosixPlatform(posix.BasePosix):
     name = 'mingw32'
     standalone_only = ()
     shared_only = ()
@@ -638,7 +637,9 @@ class MingwPlatform(posix.BasePosix):
 
     def __init__(self, cc=None):
         if not cc:
-            cc = 'gcc'
+            cc = 'mingw32'
+        elif cc == 'clang':
+            self.cflags = tuple(self.cflags) + ('-fms-extensions',)
         Platform.__init__(self, cc)
 
     def _args_for_shared(self, args, **kwds):
@@ -651,6 +652,5 @@ class MingwPlatform(posix.BasePosix):
         return []
 
     def _handle_error(self, returncode, stdout, stderr, outname):
-        # Mingw tools write compilation errors to stdout
-        super(MingwPlatform, self)._handle_error(
+        super(EmulatedPosixPlatform, self)._handle_error(
             returncode, '', stderr + stdout, outname)

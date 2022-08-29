@@ -1,5 +1,4 @@
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
@@ -94,7 +93,7 @@ def str_decode_utf8(s):
 
 class AbstractStringRepr(Repr):
 
-    @jit.elidable
+    
     def ll_decode_utf8(self, llvalue):
         from rpython.rtyper.annlowlevel import hlstr
         value = hlstr(llvalue)
@@ -455,7 +454,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
     def rtype_method_lower(self, hop):
         raise TyperError("Cannot do tolower on unicode string")
 
-    @jit.elidable
+    
     def ll_encode_utf8(self, ll_s):
         from rpython.rtyper.annlowlevel import hlunicode
         from rpython.rlib import runicode

@@ -11,9 +11,8 @@ def is_chain_block(block, first=False):
         return False
     op = block.operations[-1]
     if (op.opname not in ('int_eq', 'uint_eq', 'char_eq', 'unichar_eq')
-        # note: 'llong_eq', 'ullong_eq' have been removed, as it's not
-        # strictly C-compliant to do a switch() on a long long.  It also
-        # crashes the JIT, and it's very very rare anyway.
+        # note: 'llong_eq', 'ullong_eq' have been removed, it's very
+        # very rare.
         or op.result != block.exitswitch):
         return False
     if isinstance(op.args[0], Variable) and isinstance(op.args[1], Variable):

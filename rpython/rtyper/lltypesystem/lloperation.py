@@ -448,33 +448,6 @@ LL_OPERATIONS = {
     'gc_gettypeptr_group':  LLOp(canfold=True),
     'get_member_index':     LLOp(canfold=True),
 
-    # __________ used by the JIT ________
-
-    'jit_marker':           LLOp(),
-    'jit_force_virtualizable':LLOp(canrun=True),
-    'jit_force_virtual':    LLOp(canrun=True),
-    'jit_is_virtual':       LLOp(canrun=True),
-    'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_record_exact_class'  : LLOp(canrun=True),
-    'jit_record_exact_value'  : LLOp(canrun=True),
-    'jit_ffi_save_result':  LLOp(canrun=True),
-    'jit_conditional_call': LLOp(),
-    'jit_conditional_call_value': LLOp(),
-    'jit_enter_portal_frame': LLOp(canrun=True),
-    'jit_leave_portal_frame': LLOp(canrun=True),
-    'get_exception_addr':   LLOp(),
-    'get_exc_value_addr':   LLOp(),
-    'do_malloc_fixedsize':LLOp(canmallocgc=True),
-    'do_malloc_fixedsize_clear': LLOp(canmallocgc=True),
-    'do_malloc_varsize':  LLOp(canmallocgc=True),
-    'do_malloc_varsize_clear':  LLOp(canmallocgc=True),
-    'get_write_barrier_failing_case': LLOp(sideeffects=False),
-    'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
-    'gc_get_type_info_group': LLOp(sideeffects=False),
-    'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
-    'll_get_timestamp_unit': LLOp(revdb_protect=True, canrun=True),
-    'jit_record_known_result': LLOp(canrun=True),
-
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canmallocgc=True),
@@ -542,12 +515,8 @@ LL_OPERATIONS = {
     'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
     'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
 
-    # ------- JIT & GC interaction, only for some GCs ----------
+    # ------- Only for some GCs ----------
 
-    'gc_adr_of_nursery_free' : LLOp(),
-    # ^^^ returns an address of nursery free pointer, for later modifications
-    'gc_adr_of_nursery_top' : LLOp(),
-    # ^^^ returns an address of pointer, since it can change at runtime
     'gc_adr_of_root_stack_base': LLOp(),
     'gc_adr_of_root_stack_top': LLOp(),
     # returns the address of gcdata.root_stack_base/top (for shadowstack only)

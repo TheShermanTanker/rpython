@@ -5,7 +5,7 @@ from rpython.annotator.model import s_Str0
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
 from rpython.rtyper.tool import rffi_platform
-from rpython.rlib import debug, jit, rstring, rthread, types
+from rpython.rlib import debug, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
     POSIX_SIZE_T, POSIX_SSIZE_T,
@@ -226,17 +226,13 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 if os.name == 'nt':
     # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
-    c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
-                                  [], rffi.VOIDP, compilation_info=errno_eci))
-    c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
-                                  [rffi.VOIDP], lltype.Void,
-                                  compilation_info=errno_eci))
-    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
-                                  [], rffi.VOIDP, compilation_info=errno_eci,
-                                  releasegil=False))
-    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
-                                  [rffi.VOIDP], lltype.Void, releasegil=False,
-                                  compilation_info=errno_eci))
+    c_enter_suppress_iph = external("enter_suppress_iph", [], rffi.VOIDP, compilation_info=errno_eci)
+    c_exit_suppress_iph = external("exit_suppress_iph", [rffi.VOIDP], lltype.Void,
+                                compilation_info=errno_eci)
+    c_enter_suppress_iph_del = external("enter_suppress_iph", [], rffi.VOIDP,
+                                compilation_info=errno_eci, releasegil=False)
+    c_exit_suppress_iph_del = external("exit_suppress_iph", [rffi.VOIDP], lltype.Void, releasegil=False,
+                                compilation_info=errno_eci)
 
     class SuppressIPH_del(object):
 
@@ -969,7 +965,7 @@ c_forkpty = external('forkpty',
                      rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
-@jit.dont_look_inside
+
 def fork():
     # NB. keep forkpty() up-to-date, too
     # lots of custom logic here, to do things in the right order
@@ -985,7 +981,7 @@ def fork():
     return childpid
 
 @replace_os_function('openpty')
-@jit.dont_look_inside
+
 def openpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -998,7 +994,7 @@ def openpty():
         lltype.free(slave_p, flavor='raw')
 
 @replace_os_function('forkpty')
-@jit.dont_look_inside
+
 def forkpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     master_p[0] = rffi.cast(rffi.INT, -1)
@@ -1022,7 +1018,7 @@ if _WIN32:
     c__cwait = external('_cwait',
                         [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T,
                         save_err=rffi.RFFI_SAVE_ERRNO)
-    @jit.dont_look_inside
+    
     def c_waitpid(pid, status_p, options):
         result = c__cwait(status_p, pid, options)
         # shift the status left a byte so this is more
@@ -1200,7 +1196,7 @@ def mkdir(path, mode=0o777):
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
-@jit.dont_look_inside
+
 def rmdir(path):
     if _prefer_unicode(path):
         handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
@@ -1634,7 +1630,7 @@ def killpg(pgrp, sig):
     return handle_posix_error('killpg', c_killpg(pgrp, sig))
 
 @replace_os_function('_exit')
-@jit.dont_look_inside
+
 def exit(status):
     debug.debug_flush()
     c_exit(status)

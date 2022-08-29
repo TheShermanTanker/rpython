@@ -7,7 +7,6 @@ import sys
 import py
 
 from rpython.flowspace.model import Variable
-from rpython.rlib import jit
 
 
 SHOW_TRACEBACK = False
@@ -156,7 +155,6 @@ def debug(drv, use_pdb=True):
         pdb_plus_show.start(tb)
 
 
-@jit.elidable
 def offset2lineno(c, stopat):
     # even position in lnotab denote byte increments, odd line increments.
     # see dis.findlinestarts in the python std. library for more details

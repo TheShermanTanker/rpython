@@ -9,10 +9,9 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
-from rpython.rlib import jit, rposix
+from rpython.rlib import rposix
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -301,7 +300,7 @@ if not _WIN32:
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
-    @jit.dont_look_inside
+    
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 
@@ -344,7 +343,6 @@ else:
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
                                    VOIDPP], c_ffi_call_return_type,
                       save_err=rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
-# Note: the RFFI_ALT_ERRNO flag matches the one in pyjitpl.direct_libffi_call
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure_loc = external('ffi_prep_closure_loc', [FFI_CLOSUREP, FFI_CIFP,
@@ -424,7 +422,6 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
                                    hints={'callback':True}))
 
 
-@jit.jit_callback("CLIBFFI")
 def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -458,7 +455,7 @@ FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
 @specialize.arg(1)     # hack :-/
-def get_call_conv(flags, from_jit):
+def get_call_conv(flags):
     if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:

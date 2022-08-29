@@ -5,7 +5,6 @@ from rpython.rtyper import rclass
 from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
 from rpython.rlib.rweakref import RWeakKeyDictionary
-from rpython.rlib import jit
 from rpython.rlib.objectmodel import compute_identity_hash
 
 
@@ -111,7 +110,7 @@ WEAKDICTENTRYARRAY = lltype.GcArray(WEAKDICTENTRY,
                                     hints={'weakarray': 'key'})
 # NB. the 'hints' is not used so far ^^^
 
-@jit.dont_look_inside
+
 def ll_new_weakdict():
     d = lltype.malloc(WEAKDICT)
     d.entries = WEAKDICT.entries.TO.allocate(rdict.DICT_INITSIZE)
@@ -119,7 +118,7 @@ def ll_new_weakdict():
     d.resize_counter = rdict.DICT_INITSIZE * 2
     return d
 
-@jit.dont_look_inside
+
 def ll_get(d, llkey):
     hash = compute_identity_hash(llkey)
     i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
@@ -131,14 +130,14 @@ def ll_get(d, llkey):
     # to NULLVALUE.
     return d.entries[i].value
 
-@jit.dont_look_inside
+
 def ll_set(d, llkey, llvalue):
     if llvalue:
         ll_set_nonnull(d, llkey, llvalue)
     else:
         ll_set_null(d, llkey)
 
-@jit.dont_look_inside
+
 def ll_set_nonnull(d, llkey, llvalue):
     hash = compute_identity_hash(llkey)
     keyref = weakref_create(llkey)    # GC effects here, before the rest
@@ -156,7 +155,7 @@ def ll_set_nonnull(d, llkey, llvalue):
             #llop.debug_print(lltype.Void, 'RESIZE')
             ll_weakdict_resize(d)
 
-@jit.dont_look_inside
+
 def ll_set_null(d, llkey):
     hash = compute_identity_hash(llkey)
     i = rdict.ll_dict_lookup(d, llkey, hash) & rdict.MASK
@@ -189,7 +188,7 @@ def ll_keyeq(d, weakkey1, realkey2):
         return False
     return weakref_deref(rclass.OBJECTPTR, weakkey1) == realkey2
 
-@jit.dont_look_inside
+
 def ll_length(d):
     # xxx slow, but it's only for debugging
     ll_update_num_items(d)

@@ -134,8 +134,7 @@ GCFLAG_EXTRA        = first_gcflag << 5
 # one bit per 'card_page_indices' indices.
 GCFLAG_HAS_CARDS    = first_gcflag << 6
 GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
-# note that GCFLAG_CARDS_SET is the most significant bit of a byte:
-# this is required for the JIT (x86)
+# note that GCFLAG_CARDS_SET is the most significant bit of a byte
 
 # The following flag is set on surviving raw-malloced young objects during
 # a minor collection.
@@ -943,8 +942,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         specified as 0 if the object is not varsized.  The returned
         object is fully initialized, but not zero-filled."""
         #
-        # Here we really need a valid 'typeid', not 0 (as the JIT might
-        # try to send us if there is still a bug).
+        # Here we really need a valid 'typeid', not 0).
         ll_assert(bool(self.combine(typeid, 0)),
                   "external_malloc: typeid == 0")
         #
@@ -1428,33 +1426,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Write barrier
 
-    # for the JIT: a minimal description of the write_barrier() method
-    # (the JIT assumes it is of the shape
-    #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
-    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS
-
-    # for the JIT to generate custom code corresponding to the array
-    # write barrier for the simplest case of cards.  If JIT_CARDS_SET
-    # is already set on an object, it will execute code like this:
-    #    MOV eax, index
-    #    SHR eax, JIT_WB_CARD_PAGE_SHIFT
-    #    XOR eax, -8
-    #    BTS [object], eax
-    if TRANSLATION_PARAMS['card_page_indices'] > 0:
-        JIT_WB_CARDS_SET = GCFLAG_CARDS_SET
-        JIT_WB_CARD_PAGE_SHIFT = 1
-        while ((1 << JIT_WB_CARD_PAGE_SHIFT) !=
-               TRANSLATION_PARAMS['card_page_indices']):
-            JIT_WB_CARD_PAGE_SHIFT += 1
-
-    @classmethod
-    def JIT_max_size_of_young_obj(cls):
-        return cls.TRANSLATION_PARAMS['large_object']
-
-    @classmethod
-    def JIT_minimal_size_in_nursery(cls):
-        return cls.minimal_size_in_nursery
-
     def write_barrier(self, addr_struct):
         # see OP_GC_BIT in translator/c/gc.py
         if llop.gc_bit(lltype.Signed, self.header(addr_struct),
@@ -1494,8 +1465,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # However, it isn't really a win, because then sometimes
             # we're going to call this function a lot of times for the
             # same object; moreover we'd need to pass the 'newvalue' as
-            # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.  Moreover, the incremental
+            # an argument here.  Moreover, the incremental
             # GC nowadays relies on this fact.
             self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
@@ -1565,22 +1535,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                   "non-positive card_page_indices")
         self.remember_young_pointer_from_array2 = (
             remember_young_pointer_from_array2)
-
-        def jit_remember_young_pointer_from_array(addr_array):
-            # minimal version of the above, with just one argument,
-            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
-            # but GCFLAG_CARDS_SET is cleared.  This tries to set
-            # GCFLAG_CARDS_SET if possible; otherwise, it falls back
-            # to remember_young_pointer().
-            objhdr = self.header(addr_array)
-            if objhdr.tid & GCFLAG_HAS_CARDS:
-                self.old_objects_with_cards_set.append(addr_array)
-                objhdr.tid |= GCFLAG_CARDS_SET
-            else:
-                self.remember_young_pointer(addr_array)
-
-        self.jit_remember_young_pointer_from_array = (
-            jit_remember_young_pointer_from_array)
 
     def get_card(self, obj, byteindex):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1939,13 +1893,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # collection, then we can't use the "is_minor=True" optimization.
         # We really need to walk the complete stack to be sure we still
         # see them.
-        use_jit_frame_stoppers = not any_pinned_object_from_earlier
         #
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
             None,         # static in prebuilt gc
-            is_minor=use_jit_frame_stoppers)
+            is_minor=not any_pinned_object_from_earlier)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):

@@ -1,4 +1,3 @@
-from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian, native_fmttable
@@ -16,7 +15,6 @@ class FormatIterator(object):
     _mixin_ = True
     _operate_is_specialized_ = False
 
-    @jit.look_inside_iff(lambda self, fmt: jit.isconstant(fmt))
     def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
         table = unroll_native_fmtdescs

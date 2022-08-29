@@ -34,8 +34,6 @@
 #define PROFILE_RPYTHON '\x08'
 #define PROFILE_REAL_TIME '\x10'
 
-#define DYN_JIT_FLAG 0xbeefbeef
-
 #ifdef _WIN32
 #ifndef VMPROF_WINDOWS
 #define VMPROF_WINDOWS

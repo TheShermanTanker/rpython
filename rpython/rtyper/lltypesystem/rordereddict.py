@@ -3,7 +3,7 @@ from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib import objectmodel, jit, rgc, types
+from rpython.rlib import objectmodel, rgc, types
 from rpython.rlib.signature import signature
 from rpython.rlib.objectmodel import specialize, likely, not_rpython
 from rpython.rtyper.debug import ll_assert
@@ -43,8 +43,6 @@ from rpython.rtyper.annlowlevel import llhelper
 #
 #
 
-@jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
-@jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
     while True:
         fun = d.lookup_function_no & FUNC_MASK
@@ -549,7 +547,7 @@ def ll_clear_indexes(d, n):
     else:
         assert False
 
-@jit.dont_look_inside
+
 def ll_call_insert_clean_function(d, hash, i):
     assert i >= 0
     fun = d.lookup_function_no & FUNC_MASK
@@ -567,8 +565,6 @@ def ll_call_insert_clean_function(d, hash, i):
         assert False
 
 def ll_call_delete_by_entry_index(d, hash, i, replace_with):
-    # only called from _ll_dict_del, whose @jit.look_inside_iff
-    # condition should control when we get inside here with the jit
     fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
         ll_dict_delete_by_entry_index(d, hash, i, replace_with, TYPE_BYTE)
@@ -656,9 +652,6 @@ def ll_dict_setitem_with_hash(d, key, hash, value):
     index = d.lookup_function(d, key, hash, FLAG_STORE)
     _ll_dict_setitem_lookup_done(d, key, value, hash, index)
 
-# It may be safe to look inside always, it has a few branches though, and their
-# frequencies needs to be investigated.
-@jit.look_inside_iff(lambda d, key, value, hash, i: jit.isvirtual(d) and jit.isconstant(key))
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     ENTRY = lltype.typeOf(d.entries).TO.OF
     if i >= 0:
@@ -696,7 +689,7 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
         d.num_ever_used_items += 1
         d.num_live_items += 1
 
-@jit.dont_look_inside
+
 def _ll_dict_rescue(d):
     # MemoryError situation!  The 'indexes' contains an invalid entry
     # at this point.  But we can call ll_dict_reindex() with the
@@ -719,14 +712,14 @@ def _ll_dict_insert_no_index(d, key, value):
     rc = d.resize_counter - 3
     d.resize_counter = rc
 
-@jit.dont_look_inside
+
 def ll_len_of_d_indexes(d):
     return _ll_len_of_d_indexes(d)
 
 def _ll_len_of_d_indexes(d):
     # xxx Haaaack: returns len(d.indexes).  Works independently of
     # the exact type pointed to by d, using a forced cast...
-    # Must only be called by @jit.dont_look_inside functions.
+    # Must only be called by  functions.
     return lltype.length_of_simple_gcarray_from_opaque(d.indexes)
 
 def _overallocate_entries_len(baselen):
@@ -739,12 +732,7 @@ def _overallocate_entries_len(baselen):
     newsize = baselen + (baselen >> 3)
     return newsize + 8
 
-@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_grow(d):
-    # note: this @jit.look_inside_iff is here to inline the three lines
-    # at the end of this function.  It's important because dicts start
-    # with a length-zero 'd.entries' which must be grown as soon as we
-    # insert an element.
     if d.num_live_items < d.num_ever_used_items // 2:
         # At least 50% of the allocated entries are dead, so perform a
         # compaction. If ll_dict_remove_deleted_items detects that over
@@ -785,7 +773,7 @@ def ll_dict_grow(d):
     d.entries = newitems
     return False
 
-@jit.dont_look_inside
+
 def ll_dict_remove_deleted_items(d):
     if d.num_live_items < len(d.entries) // 4:
         # At least 75% of the allocated entries are dead, so shrink the memory
@@ -867,7 +855,6 @@ def _ll_dict_del_entry(d, index):
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
 
-@jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, hash, index):
     ll_call_delete_by_entry_index(d, hash, index, DELETED)
     _ll_dict_del_entry(d, index)
@@ -925,12 +912,11 @@ def ll_ensure_indexes(d):
         ll_assert((num & FUNC_MASK) != FUNC_MUST_REINDEX,
                   "bad combination in lookup_function_no")
 
-@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_create_initial_index(d):
     """Create the initial index for a dictionary.  The common case is
     that 'd' is empty.  The uncommon case is that it is a prebuilt
     dictionary frozen by translation, in which case we must rehash all
-    entries.  The common case must be seen by the JIT.
+    entries.  
     """
     if d.num_live_items == 0:
         ll_malloc_indexes_and_choose_lookup(d, DICT_INITSIZE)
@@ -938,7 +924,7 @@ def ll_dict_create_initial_index(d):
     else:
         ll_dict_rehash_after_translation(d)
 
-@jit.dont_look_inside
+
 def ll_dict_rehash_after_translation(d):
     assert d.num_live_items == d.num_ever_used_items
     assert not d.indexes
@@ -1018,9 +1004,6 @@ FLAG_STORE = 1
 def _ll_ptr_to_array_of(T):
     return lltype.Ptr(lltype.GcArray(T))
 
-@jit.look_inside_iff(lambda d, key, hash, store_flag, T:
-                     jit.isvirtual(d) and jit.isconstant(key))
-@jit.oopspec('ordereddict.lookup(d, key, hash, store_flag, T)')
 def ll_dict_lookup(d, key, hash, store_flag, T):
     INDEXES = _ll_ptr_to_array_of(T)
     entries = d.entries
@@ -1107,10 +1090,6 @@ def ll_dict_store_clean(d, hash, index, T):
         perturb >>= PERTURB_SHIFT
     indexes[i] = rffi.cast(T, index + VALID_OFFSET)
 
-# the following function is only called from _ll_dict_del, whose
-# @jit.look_inside_iff condition should control when we get inside
-# here with the jit
-@jit.unroll_safe
 def ll_dict_delete_by_entry_index(d, hash, locate_index, replace_with, T):
     # Another simplified version of ll_dict_lookup() which locates a
     # hashtable entry with the given 'index' stored in it, and deletes it.
@@ -1209,10 +1188,6 @@ def ll_dictiter(ITERPTR, d):
     iter.index = d.lookup_function_no >> FUNC_SHIFT
     return iter
 
-@jit.look_inside_iff(lambda iter: jit.isvirtual(iter)
-                     and (iter.dict is None or
-                          jit.isvirtual(iter.dict)))
-@jit.oopspec("odictiter.next(iter)")
 def _ll_dictnext(iter):
     dict = iter.dict
     if dict:
@@ -1284,14 +1259,8 @@ def ll_dict_setdefault(dict, key, default):
     else:
         return dict.entries[index].value
 
-@jit.look_inside_iff(lambda dict: jit.isvirtual(dict))
 def ll_dict_copy(dict):
-    # we never have to reindex while jitting, because dict is virtual
-    if not jit.we_are_jitted():
-        ll_ensure_indexes(dict)
-    else:
-        num = dict.lookup_function_no
-        assert (num & FUNC_MASK) != FUNC_MUST_REINDEX
+    ll_ensure_indexes(dict)
 
     DICT = lltype.typeOf(dict).TO
     newdict = DICT.allocate()
@@ -1356,7 +1325,6 @@ def ll_dict_clear(d):
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
-@jit.look_inside_iff(lambda dic1, dic2: jit.isvirtual(dic1) and jit.isvirtual(dic2))
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
@@ -1388,8 +1356,6 @@ def ll_prepare_dict_update(d, num_extra):
     # will trigger anyway, which is really the goal.
     ll_ensure_indexes(d)
     x = num_extra - d.num_live_items
-    jit.conditional_call(d.resize_counter <= x * 3,
-                         _ll_dict_resize_to, d, num_extra)
 
 # this is an implementation of keys(), values() and items()
 # in a single function.

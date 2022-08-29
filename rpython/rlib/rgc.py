@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import gc
 import types
 
-from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -282,20 +281,6 @@ def _make_sure_does_not_move(p):
         i += 1
     return True
 
-def needs_write_barrier(obj):
-    """ We need to emit write barrier if the right hand of assignment
-    is in nursery, used by the JIT for handling set*_gc(Const)
-    """
-    if not obj:
-        return False
-    # XXX returning can_move() here might acidentally work for the use
-    # cases (see issue #2212), but this is not really safe.  Now we
-    # just return True for any non-NULL pointer, and too bad for the
-    # few extra 'cond_call_gc_wb'.  It could be improved e.g. to return
-    # False if 'obj' is a static prebuilt constant, or if we're not
-    # running incminimark...
-    return True #can_move(obj)
-
 def _heap_stats():
     raise NotImplementedError # can't be run directly
 
@@ -359,7 +344,6 @@ def _contains_gcptr(TP):
     return False
 
 
-@jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
 @specialize.ll()
 def ll_arraycopy(source, dest, source_start, dest_start, length):
@@ -412,7 +396,6 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
-@jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
 @enforceargs(None, int, int, int)
 @specialize.ll()
 def ll_arraymove(array, source_start, dest_start, length):
@@ -465,7 +448,6 @@ def ll_arraymove(array, source_start, dest_start, length):
                                  llmemory.sizeof(TP.OF) * length)
     keepalive_until_here(array)
 
-@jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
 @enforceargs(None, int)
 @specialize.ll()
 def ll_shrink_array(p, smallerlength):
@@ -505,7 +487,7 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
-@jit.dont_look_inside
+
 @specialize.ll()
 def ll_arrayclear(p):
     # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
@@ -569,7 +551,7 @@ class FinalizerQueue(object):
         return True
 
     @specialize.arg(0)
-    @jit.dont_look_inside
+    
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
@@ -586,7 +568,7 @@ class FinalizerQueue(object):
             return None
 
     @specialize.arg(0)
-    @jit.dont_look_inside
+    
     def register_finalizer(self, obj):
         from rpython.rtyper.lltypesystem.llmemory import GCREF
         if self.Class is None:
@@ -709,7 +691,7 @@ class FqTagEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
-@jit.dont_look_inside
+
 @specialize.argtype(0)
 def may_ignore_finalizer(obj):
     """Optimization hint: says that it is valid for any finalizer
@@ -717,7 +699,7 @@ def may_ignore_finalizer(obj):
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.gc_ignore_finalizer(lltype.Void, obj)
 
-@jit.dont_look_inside
+
 def move_out_of_nursery(obj):
     """ Returns another object which is a copy of obj; but at any point
         (either now or in the future) the returned object might suddenly
@@ -742,7 +724,7 @@ class MoveOutOfNurseryEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_move_out_of_nursery', hop.args_v, resulttype=hop.r_result)
 
-@jit.dont_look_inside
+
 def increase_root_stack_depth(new_depth):
     """Shadowstack: make sure the size of the shadowstack is at least
     'new_depth' pointers."""
@@ -963,7 +945,7 @@ def _fetch_ffi():
             py.test.skip("need CFFI >= 1.0")
     return _ffi_cache
 
-@jit.dont_look_inside
+
 def hide_nonmovable_gcref(gcref):
     from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
     if we_are_translated():
@@ -979,7 +961,7 @@ def hide_nonmovable_gcref(gcref):
         addr = int(ffi.cast("intptr_t", x.__handle))
         return rffi.cast(llmemory.Address, addr)
 
-@jit.dont_look_inside
+
 def reveal_gcref(addr):
     from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
     assert lltype.typeOf(addr) == llmemory.Address
@@ -1552,7 +1534,7 @@ class Entry(ExtRegistryEntry):
                          resulttype = hop.r_result.lowleveltype)
 
 
-@jit.dont_look_inside
+
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     """
     WARNING: dragons ahead.
@@ -1580,7 +1562,7 @@ def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     # ptr is a Ptr(FixedSizeArray(Char, 1)).  Cast it to a rffi.CCHARP
     return rffi.cast(rffi.CCHARP, ptr)
 
-@jit.dont_look_inside
+
 @no_collect
 @specialize.ll()
 def ll_write_final_null_char(s):

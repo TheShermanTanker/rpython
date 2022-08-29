@@ -6,7 +6,6 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
 from rpython.rlib.rweakref import RWeakValueDictionary
-from rpython.rlib import jit
 
 
 class WeakValueDictRepr(Repr):
@@ -108,7 +107,7 @@ class WeakValueDictRepr(Repr):
 
     # ____________________________________________________________
 
-    @jit.dont_look_inside
+    
     def ll_new_weakdict(self):
         d = lltype.malloc(self.WEAKDICT)
         d.entries = self.WEAKDICT.entries.TO.allocate(rdict.DICT_INITSIZE)
@@ -116,7 +115,7 @@ class WeakValueDictRepr(Repr):
         d.resize_counter = rdict.DICT_INITSIZE * 2
         return d
 
-    @jit.dont_look_inside
+    
     def ll_get(self, d, llkey):
         if d.resize_counter < 0:
             self.ll_weakdict_rehash_after_translation(d)
@@ -129,14 +128,14 @@ class WeakValueDictRepr(Repr):
         else:
             return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    @jit.dont_look_inside
+    
     def ll_set(self, d, llkey, llvalue):
         if llvalue:
             self.ll_set_nonnull(d, llkey, llvalue)
         else:
             self.ll_set_null(d, llkey)
 
-    @jit.dont_look_inside
+    
     def ll_set_nonnull(self, d, llkey, llvalue):
         if d.resize_counter < 0:
             self.ll_weakdict_rehash_after_translation(d)
@@ -153,7 +152,7 @@ class WeakValueDictRepr(Repr):
                 #llop.debug_print(lltype.Void, 'RESIZE')
                 self.ll_weakdict_resize(d)
 
-    @jit.dont_look_inside
+    
     def ll_set_null(self, d, llkey):
         if d.resize_counter < 0:
             self.ll_weakdict_rehash_after_translation(d)

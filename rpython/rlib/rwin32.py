@@ -12,7 +12,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
-from rpython.rlib import jit
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -397,7 +396,7 @@ if WIN32:
                                 DWORD,
                                 save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    @jit.dont_look_inside
+    
     def GetVersionEx():
         info = lltype.malloc(OSVERSIONINFOEX, flavor='raw')
         rffi.setintfield(info, 'c_dwOSVersionInfoSize',

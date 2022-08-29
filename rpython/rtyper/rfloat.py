@@ -1,7 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import _hash_float
 from rpython.rlib.rarithmetic import base_int
-from rpython.rlib import jit
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Bool, Float)
@@ -57,7 +56,7 @@ class FloatRepr(Repr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    @jit.elidable
+    
     def ll_str(self, f):
         from rpython.rlib.rfloat import formatd
         return llstr(formatd(f, 'f', 6))

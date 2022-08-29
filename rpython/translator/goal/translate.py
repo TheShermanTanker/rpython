@@ -23,8 +23,6 @@ except Exception:
 GOALS = [
     ("annotate", "do type inference", "-a --annotate", ""),
     ("rtype", "do rtyping", "-t --rtype", ""),
-    ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
-    ("jittest", "JIT test with llgraph backend", "--pyjittest", ""),
     ("backendopt", "do backend optimizations", "--backendopt", ""),
     ("source", "create source", "-s --source", ""),
     ("compile", "compile", "-c --compile", " (default goal)"),
@@ -283,15 +281,8 @@ def main():
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, args,
                                                        empty_translator=t,
                                                        disable=translateconfig.skipped_goals,
-                                                       default_goal='compile')
+                                                       default_goal='generate')
         log_config(translateconfig, "translate.py configuration")
-        if config.translation.jit:
-            if (translateconfig.goals != ['annotate'] and
-                translateconfig.goals != ['rtype']):
-                drv.set_extra_goals(['pyjitpl'])
-            # early check:
-            from rpython.jit.backend.detect_cpu import getcpuclassname
-            getcpuclassname(config.translation.jit_backend)
 
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
@@ -303,7 +294,7 @@ def main():
 
         # Double check to ensure we are not overwriting the current interpreter
         goals = translateconfig.goals
-        if not goals or 'compile' in goals:
+        if not goals or 'generate' in goals:
             try:
                 this_exe = py.path.local(sys.executable).new(ext='')
                 exe_name = drv.compute_exe_name()

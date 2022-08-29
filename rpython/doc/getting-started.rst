@@ -55,8 +55,6 @@ The following introductory level articles are available:
 
 .. _How to write interpreters in RPython: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 
-.. _part 2: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
-
 .. _RPython By Example: http://mesapy.org/rpython-by-example/
 
 .. _try-out-the-translator:

@@ -4,7 +4,6 @@ Character categories and charsets.
 import sys
 from rpython.rlib.rlocale import tolower, toupper, isalnum
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib import jit
 from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rsre import rsre_constants as consts
 
@@ -199,7 +198,7 @@ category_dispatch_unroll = unrolling_iterable(sorted(category_dispatch_table.ite
 
 ##### Charset evaluation
 
-@jit.unroll_safe
+
 def check_charset(ctx, pattern, ppos, char_code):
     """Checks whether a character matches set of arbitrary length.
     The set starts at pattern[ppos]."""

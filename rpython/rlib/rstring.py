@@ -5,7 +5,6 @@ import sys
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rlib import jit
 from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -211,12 +210,12 @@ def _rsplit_by(value, by, maxsplit):
 
 
 @specialize.argtype(0, 1)
-@jit.elidable
+
 def replace(input, sub, by, maxcount=-1):
     return replace_count(input, sub, by, maxcount)[0]
 
 @specialize.ll_and_arg(4)
-@jit.elidable
+
 def replace_count(input, sub, by, maxcount=-1, isutf8=False):
     if isinstance(input, str):
         Builder = StringBuilder
@@ -418,7 +417,7 @@ def _normalize_start_end(length, start, end):
     return start, end
 
 @specialize.argtype(0, 1)
-@jit.elidable
+
 def startswith(u_self, prefix, start=0, end=sys.maxint):
     length = len(u_self)
     start, end = _normalize_start_end(length, start, end)
@@ -431,7 +430,7 @@ def startswith(u_self, prefix, start=0, end=sys.maxint):
     return True
 
 @specialize.argtype(0, 1)
-@jit.elidable
+
 def endswith(u_self, suffix, start=0, end=sys.maxint):
     length = len(u_self)
     start, end = _normalize_start_end(length, start, end)
@@ -485,7 +484,7 @@ def _search(value, other, start, end, mode):
     return _search_normal(value, other, start, end, mode)
 
 @specialize.argtype(0, 1)
-@jit.elidable
+
 def _search_elidable(value, other, start, end, mode):
     return _search_normal(value, other, start, end, mode)
 

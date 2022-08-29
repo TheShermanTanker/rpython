@@ -124,9 +124,6 @@ int pypy_main_function(int argc, char *argv[])
 
 int PYPY_MAIN_FUNCTION(int argc, char *argv[])
 {
-#ifdef PYPY_X86_CHECK_SSE2_DEFINED
-    pypy_x86_check_sse2();
-#endif
     return pypy_main_function(argc, argv);
 }
 

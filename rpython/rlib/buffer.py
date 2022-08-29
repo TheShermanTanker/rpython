@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.rstr import STR, copy_string_to_raw
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit, rgc
+from rpython.rlib import rgc
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
                               nonmoving_raw_ptr_for_resizable_list,
                               ll_for_resizable_list)
@@ -98,8 +98,6 @@ class Buffer(object):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
-    @jit.look_inside_iff(lambda self, index, count:
-                         jit.isconstant(count) and count <= 8)
     def setzeros(self, index, count):
         for i in range(index, index + count):
             self.setitem(i, '\x00')
@@ -233,9 +231,8 @@ class GCBuffer(Buffer):
     @staticmethod
     def decorate(targetcls):
         """
-        Create and attach specialized versions of typed_{read,write}. We need to
-        do this becase the JIT codewriters mandates that base_ofs is an
-        RPython constant.
+        Create and attach specialized versions of typed_{read,write} to
+        ensure that base_ofs is an RPython constant.
         """
         if targetcls.__bases__ != (GCBuffer,):
             raise ValueError("@GCBuffer.decorate should be used only on "

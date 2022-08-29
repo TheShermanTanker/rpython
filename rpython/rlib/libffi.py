@@ -1,5 +1,5 @@
 """
-This whole file is DEPRECATED.  Use jit_libffi.py instead.
+This whole file is DEPRECATED.  
 """
 from __future__ import with_statement
 
@@ -7,7 +7,6 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, enforceargs
 from rpython.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
-from rpython.rlib import jit
 from rpython.rlib import clibffi
 from rpython.rlib.clibffi import FUNCFLAG_CDECL, FUNCFLAG_STDCALL, \
         AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT, \
@@ -53,7 +52,7 @@ class types(object):
         del cls._import
 
     @staticmethod
-    @jit.elidable
+    
     def getkind(ffi_type):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         and 'u' for unsigned integer.
@@ -90,7 +89,7 @@ class types(object):
         raise KeyError
 
     @staticmethod
-    @jit.elidable
+    
     def is_struct(ffi_type):
         return intmask(ffi_type.c_type) == FFI_TYPE_STRUCT
 
@@ -243,11 +242,11 @@ class Func(AbstractFuncPtr):
     # PUBLIC INTERFACE
     # ========================================================================
 
-    @jit.unroll_safe
+    
     @specialize.arg(2, 3)
     def call(self, argchain, RESULT, is_struct=False):
-        # WARNING!  This code is written carefully in a way that the JIT
-        # optimizer will see a sequence of calls like the following:
+        # WARNING!  This code is written carefully in a way that will
+        # result in a sequence of calls like the following:
         #
         #    libffi_prepare_call
         #    libffi_push_arg
@@ -255,11 +254,7 @@ class Func(AbstractFuncPtr):
         #    ...
         #    libffi_call
         #
-        # It is important that there is no other operation in the middle, else
-        # the optimizer will fail to recognize the pattern and won't turn it
-        # into a fast CALL.  Note that "arg = arg.next" is optimized away,
-        # assuming that argchain is completely virtual.
-        self = jit.promote(self)
+        # It is important that there is no other operation in the middle!
         if argchain.numargs != len(self.argtypes):
             raise TypeError('Wrong number of arguments: %d expected, got %d' %
                 (len(self.argtypes), argchain.numargs))
@@ -298,12 +293,7 @@ class Func(AbstractFuncPtr):
 
     # END OF THE PUBLIC INTERFACE
     # ------------------------------------------------------------------------
-
-    # JIT friendly interface
-    # the following methods are supposed to be seen opaquely by the optimizer
-
-    #@jit.oopspec('libffi_prepare_call(self)')
-    @jit.dont_look_inside
+    
     def _prepare(self):
         ll_args = lltype.malloc(rffi.VOIDPP.TO, len(self.argtypes), flavor='raw')
         return ll_args
@@ -312,63 +302,43 @@ class Func(AbstractFuncPtr):
     # _push_* and _do_call_* in theory could be automatically specialize()d by
     # the annotator.  However, specialization doesn't work well with oopspec,
     # so we specialize them by hand
-
-    #@jit.oopspec('libffi_push_int(self, value, ll_args, i)')
-    @jit.dont_look_inside
+    
     @enforceargs( None, int,   None,    int) # fix the annotation for tests
     def _push_int(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
 
-    @jit.dont_look_inside
+    
     def _push_raw(self, value, ll_args, i):
         ll_args[i] = value
-
-    #@jit.oopspec('libffi_push_float(self, value, ll_args, i)')
-    @jit.dont_look_inside
+    
     @enforceargs(   None, float, None,    int) # fix the annotation for tests
     def _push_float(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
-
-    #@jit.oopspec('libffi_push_singlefloat(self, value, ll_args, i)')
-    @jit.dont_look_inside
+    
     @enforceargs(None, r_singlefloat, None, int) # fix the annotation for tests
     def _push_singlefloat(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
-
-    #@jit.oopspec('libffi_push_longlong(self, value, ll_args, i)')
-    @jit.dont_look_inside
+    
     @enforceargs(None, r_longlong, None, int) # fix the annotation for tests
     def _push_longlong(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
-
-    #@jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
-    @jit.dont_look_inside
+    
     @specialize.arg(3)
     def _do_call_int(self, funcsym, ll_args, TP):
         return rffi.cast(rffi.SIGNED, self._do_call(funcsym, ll_args, TP))
-
-    #@jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
-    @jit.dont_look_inside
+    
     def _do_call_float(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.DOUBLE)
-
-    #@jit.oopspec('libffi_call_singlefloat(self, funcsym, ll_args)')
-    @jit.dont_look_inside
+    
     def _do_call_singlefloat(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.FLOAT)
 
-    @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):
-        # same as _do_call_int, but marked as jit.dont_look_inside
         return self._do_call(funcsym, ll_args, rffi.SIGNED)
-
-    #@jit.oopspec('libffi_call_longlong(self, funcsym, ll_args)')
-    @jit.dont_look_inside
+    
     def _do_call_longlong(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.LONGLONG)
-
-    #@jit.oopspec('libffi_call_void(self, funcsym, ll_args)')
-    @jit.dont_look_inside
+    
     def _do_call_void(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, lltype.Void)
 
@@ -478,8 +448,6 @@ if os.name == 'nt':
 
 # ======================================================================
 
-#@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
-@jit.dont_look_inside
 def struct_getfield_int(ffitype, addr, offset):
     """
     Return the field of type ``ffitype`` at ``addr+offset``, widened to
@@ -491,9 +459,6 @@ def struct_getfield_int(ffitype, addr, offset):
             return rffi.cast(lltype.Signed, value)
     assert False, "cannot find the given ffitype"
 
-
-#@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
-@jit.dont_look_inside
 def struct_setfield_int(ffitype, addr, offset, value):
     """
     Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
@@ -506,9 +471,6 @@ def struct_setfield_int(ffitype, addr, offset, value):
             return
     assert False, "cannot find the given ffitype"
 
-
-#@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
-@jit.dont_look_inside
 def struct_getfield_longlong(ffitype, addr, offset):
     """
     Return the field of type ``ffitype`` at ``addr+offset``, casted to
@@ -517,8 +479,6 @@ def struct_getfield_longlong(ffitype, addr, offset):
     value = _struct_getfield(lltype.SignedLongLong, addr, offset)
     return value
 
-#@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
-@jit.dont_look_inside
 def struct_setfield_longlong(ffitype, addr, offset, value):
     """
     Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
@@ -526,27 +486,17 @@ def struct_setfield_longlong(ffitype, addr, offset, value):
     """
     _struct_setfield(lltype.SignedLongLong, addr, offset, value)
 
-
-#@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
-@jit.dont_look_inside
 def struct_getfield_float(ffitype, addr, offset):
     value = _struct_getfield(lltype.Float, addr, offset)
     return value
 
-#@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
-@jit.dont_look_inside
 def struct_setfield_float(ffitype, addr, offset, value):
     _struct_setfield(lltype.Float, addr, offset, value)
 
-
-#@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
-@jit.dont_look_inside
 def struct_getfield_singlefloat(ffitype, addr, offset):
     value = _struct_getfield(lltype.SingleFloat, addr, offset)
     return value
 
-#@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
-@jit.dont_look_inside
 def struct_setfield_singlefloat(ffitype, addr, offset, value):
     _struct_setfield(lltype.SingleFloat, addr, offset, value)
 
@@ -578,8 +528,7 @@ def _struct_setfield(TYPE, addr, offset, value):
 # you can't hash a pointer obj, which the specialize machinery wants to do.
 # Given the present usage of these functions, it's good enough.
 @specialize.call_location()
-#@jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
-@jit.dont_look_inside
+
 def array_getitem(ffitype, width, addr, index, offset):
     for TYPE, ffitype2 in clibffi.ffitype_map:
         if ffitype is ffitype2:
@@ -594,8 +543,7 @@ def array_getitem_T(TYPE, width, addr, index, offset):
     return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
 
 @specialize.call_location()
-#@jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
-@jit.dont_look_inside
+
 def array_setitem(ffitype, width, addr, index, offset, value):
     for TYPE, ffitype2 in clibffi.ffitype_map:
         if ffitype is ffitype2:

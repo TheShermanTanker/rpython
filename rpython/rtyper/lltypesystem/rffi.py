@@ -17,7 +17,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, we_are_translated_to_c
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
-from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import maxint, LONG_BIT
 from rpython.translator.platform import CompilationError
@@ -98,10 +97,7 @@ def llexternal(name, args, result, _callable=None,
                 don't bother releasing the GIL.  An explicit True or False
                 overrides this logic.
 
-    calling_conv: if 'unknown' or 'win', the C function is not directly seen
-                  by the JIT.  If 'c', it can be seen (depending on
-                  releasegil=False).  For tests only, or if _nowrapper,
-                  it defaults to 'c'.
+    calling_conv: For tests only, or if _nowrapper, it defaults to 'c'.
 
     natural_arity: on platforms where it matters, you have to provide the natural
                    arity for variadic calls. Important examples are OS X on M1
@@ -220,13 +216,6 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
         #
-        # '_call_aroundstate_target_' is used by the JIT to generate a
-        # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
-        # 'funcptr' might be a C macro, though. We also can't do variadic
-        # calls
-        if macro is None and natural_arity == -1:
-            call_external_function._call_aroundstate_target_ = funcptr, save_err
-        #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -234,8 +223,6 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the GIL handling, we can just call
         # the low-level function pointer carelessly
-        # ...well, unless it's a macro, in which case we still have
-        # to hide it from the JIT...
 
         need_wrapper = (macro is not None or save_err != RFFI_ERR_NONE)
         # ...and unless we're on Windows and the calling convention is
@@ -265,8 +252,6 @@ def llexternal(name, args, result, _callable=None,
             call_external_function = miniglobals['call_external_function']
             call_external_function = func_with_new_name(call_external_function,
                                                         'ccall_' + name)
-            call_external_function = jit.dont_look_inside(
-                call_external_function)
 
     def _oops():
         raise AssertionError("can't pass (any more) a unicode string"
@@ -864,7 +849,7 @@ def make_string_mappings(strtype):
 
     # str -> (buf, llobj, flag)
     # Can't inline this because of the raw address manipulation.
-    @jit.dont_look_inside
+    
     def get_nonmovingbuffer_ll(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
@@ -917,7 +902,7 @@ def make_string_mappings(strtype):
     get_nonmovingbuffer_ll._annenforceargs_ = [strtype]
 
 
-    @jit.dont_look_inside
+    
     def get_nonmovingbuffer_ll_final_null(data):
         tup = get_nonmovingbuffer_ll(data)
         buf = tup[0]
@@ -928,7 +913,7 @@ def make_string_mappings(strtype):
 
     # args-from-tuple-returned-by-get_nonmoving_buffer() -> None
     # Can't inline this because of the raw address manipulation.
-    @jit.dont_look_inside
+    
     def free_nonmovingbuffer_ll(buf, llobj, flag):
         """
         Keep 'llobj' alive and unpin it if it was pinned (flag==\5).
@@ -944,7 +929,7 @@ def make_string_mappings(strtype):
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
-    @jit.dont_look_inside
+    
     def alloc_buffer(count):
         """
         Returns a (raw_buffer, gc_buffer, case_num) triple,
@@ -979,7 +964,7 @@ def make_string_mappings(strtype):
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
-    @jit.dont_look_inside
+    
     @enforceargs(None, None, int, int, int)
     def str_from_buffer(raw_buf, gc_buf, case_num, allocated_size, needed_size):
         """
@@ -999,7 +984,7 @@ def make_string_mappings(strtype):
         return hlstrtype(gc_buf)
 
     # (char*, str, int) -> None
-    @jit.dont_look_inside
+    
     def keep_buffer_alive_until_here(raw_buf, gc_buf, case_num):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
@@ -1468,7 +1453,7 @@ c_memset = llexternal("memset",
 # NOTE: This is not a weak key dictionary, thus keeping a lot of stuff alive.
 TEST_RAW_ADDR_KEEP_ALIVE = {}
 
-@jit.dont_look_inside
+
 def get_raw_address_of_string(string):
     """Returns a 'char *' that is valid as long as the rpython string object is alive.
     Two calls to to this function, given the same string parameter,

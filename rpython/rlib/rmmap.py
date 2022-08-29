@@ -60,8 +60,6 @@ if _POSIX:
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
-    if sys.platform == 'darwin':
-        constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
@@ -203,10 +201,6 @@ if _POSIX:
     _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
                                                        includes=includes)
     _get_allocation_granularity = _get_page_size = lambda: _pagesize
-
-    if _DARWIN:
-        _, c_pthread_jit_write_protect_np = external('pthread_jit_write_protect_np',
-            [rffi.INT], lltype.Void)
 
 elif _MS_WINDOWS:
 
@@ -685,14 +679,10 @@ if _DARWIN:
     nester = Nester()
 
     def enter_assembler_writing():
-        if nester.counter == 0:
-            c_pthread_jit_write_protect_np(0)
         nester.counter += 1
 
     def leave_assembler_writing():
         nester.counter -= 1
-        if nester.counter == 0:
-            c_pthread_jit_write_protect_np(1)
 
 else:
     def enter_assembler_writing():
@@ -784,8 +774,6 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        if _DARWIN:
-            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         if we_are_translated():
             flags = NonConstant(flags)
@@ -806,42 +794,6 @@ if _POSIX:
     class Hint:
         pos = -0x4fff0000   # for reproducible results
     hint = Hint()
-
-    def alloc(map_size):
-        """Allocate memory.  This is intended to be used by the JIT,
-        so the memory has the executable bit set and gets allocated
-        internally in case of a sandboxed process.
-        """
-        from errno import ENOMEM
-        from rpython.rlib import debug
-
-        if _CYGWIN:
-            # XXX: JIT memory should be using mmap MAP_PRIVATE with
-            #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
-            #      cannot be used, but seems to be unnecessary there.
-            res = c_malloc_safe(map_size)
-            if res == rffi.cast(PTR, 0):
-                raise MemoryError
-            return res
-        res = alloc_hinted(rffi.cast(PTR, hint.pos), map_size)
-        if res == rffi.cast(PTR, -1):
-            # some systems (some versions of OS/X?) complain if they
-            # are passed a non-zero address.  Try again.
-            res = alloc_hinted(rffi.cast(PTR, 0), map_size)
-            if res == rffi.cast(PTR, -1):
-                # ENOMEM simply raises MemoryError, but other errors are fatal
-                if rposix.get_saved_errno() != ENOMEM:
-                    debug.fatalerror_notb(
-                        "Got an unexpected error trying to allocate some "
-                        "memory for the JIT (tried to do mmap() with "
-                        "PROT_EXEC|PROT_READ|PROT_WRITE).  This can be caused "
-                        "by a system policy like PAX.  You need to find how "
-                        "to work around the policy on your system.")
-                raise MemoryError
-        else:
-            hint.pos += map_size
-        return res
-    alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
         free = c_free_safe
@@ -1011,24 +963,6 @@ elif _MS_WINDOWS:
         pos = -0x4fff0000   # for reproducible results
     hint = Hint()
     # XXX this has no effect on windows
-
-    def alloc(map_size):
-        """Allocate memory.  This is intended to be used by the JIT,
-        so the memory has the executable bit set.
-        XXX implement me: it should get allocated internally in
-        case of a sandboxed process
-        """
-        null = lltype.nullptr(rffi.VOIDP.TO)
-        res = VirtualAlloc_safe(null, map_size, MEM_COMMIT | MEM_RESERVE,
-                           PAGE_EXECUTE_READWRITE)
-        if not res:
-            raise MemoryError
-        arg = lltype.malloc(LPDWORD.TO, 1, zero=True, flavor='raw')
-        VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, arg)
-        lltype.free(arg, flavor='raw')
-        # ignore errors, just try
-        return res
-    alloc._annenforceargs_ = (int,)
 
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)

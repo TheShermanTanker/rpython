@@ -312,11 +312,6 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
         else:
             return cmp(self.orderwitness, other.orderwitness)
 
-    # support for implementing int_between: (a<=b<c) with (b-a<c-a)
-    # see rpython.jit.metainterp.pyjitpl.opimpl_int_between
-    def __sub__(self, other):
-        return self.compute_fn() - other
-
     def __rsub__(self, other):
         return other - self.compute_fn()
 

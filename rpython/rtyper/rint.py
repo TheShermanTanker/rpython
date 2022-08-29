@@ -2,7 +2,7 @@ import sys
 
 from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
-from rpython.rlib import objectmodel, jit
+from rpython.rlib import objectmodel
 from rpython.rlib.rarithmetic import intmask, longlongmask, r_int, r_longlong
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlonglong, r_ulonglonglong
 from rpython.rtyper.error import TyperError
@@ -146,7 +146,7 @@ class IntegerRepr(FloatRepr):
         hop.exception_cannot_occur()
         return vlist[0]
 
-    @jit.elidable
+    
     def ll_str(self, i):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2dec
         return ll_int2dec(i)
@@ -388,7 +388,6 @@ INT_MIN = int(-(1 << INT_BITS_1))
 
 # ---------- floordiv ----------
 
-@jit.oopspec("int.py_div(x, y)")
 def ll_int_py_div(x, y):
     # Python, and RPython, assume that integer division truncates
     # towards -infinity.  However, in C, integer division truncates
@@ -400,7 +399,6 @@ def ll_int_py_div(x, y):
     else:     u = x - p
     return r + (u >> INT_BITS_1)
 
-@jit.oopspec("int.py_div(x, y)")
 def ll_int_py_div_nonnegargs(x, y):
     from rpython.rlib.debug import ll_assert
     r = llop.int_floordiv(Signed, x, y)            # <= truncates like in C
@@ -413,18 +411,10 @@ def ll_int_py_div_zer(x, y):
     return ll_int_py_div(x, y)
 
 def ll_int_py_div_ovf(x, y):
-    # JIT: intentionally not short-circuited to produce only one guard
-    # and to remove the check fully if one of the arguments is known
     if (x == -sys.maxint - 1) & (y == -1):
         raise OverflowError("integer division")
     return ll_int_py_div(x, y)
 
-def ll_int_py_div_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError("integer division")
-    return ll_int_py_div_ovf(x, y)
-
-@jit.oopspec("int.udiv(x, y)")
 def ll_uint_py_div(x, y):
     return llop.uint_floordiv(Unsigned, x, y)
 
@@ -439,7 +429,7 @@ if SignedLongLong == Signed:
     ll_ullong_py_div     = ll_uint_py_div
     ll_ullong_py_div_zer = ll_uint_py_div_zer
 else:
-    @jit.dont_look_inside
+    
     def ll_llong_py_div(x, y):
         r = llop.llong_floordiv(SignedLongLong, x, y)  # <= truncates like in C
         p = r * y
@@ -452,7 +442,7 @@ else:
             raise ZeroDivisionError("longlong division")
         return ll_llong_py_div(x, y)
 
-    @jit.dont_look_inside
+    
     def ll_ullong_py_div(x, y):
         return llop.ullong_floordiv(UnsignedLongLong, x, y)
 
@@ -461,7 +451,7 @@ else:
             raise ZeroDivisionError("unsigned longlong division")
         return ll_ullong_py_div(x, y)
 
-@jit.dont_look_inside
+
 def ll_lllong_py_div(x, y):
     r = llop.lllong_floordiv(SignedLongLongLong, x, y) # <= truncates like in C
     p = r * y
@@ -474,7 +464,7 @@ def ll_lllong_py_div_zer(x, y):
         raise ZeroDivisionError("longlonglong division")
     return ll_lllong_py_div(x, y)
 
-@jit.dont_look_inside
+
 def ll_ulllong_py_div(x, y):
     return llop.ulllong_floordiv(UnsignedLongLongLong, x, y)
 
@@ -485,14 +475,12 @@ def ll_ulllong_py_div_zer(x, y):
 
 # ---------- mod ----------
 
-@jit.oopspec("int.py_mod(x, y)")
 def ll_int_py_mod(x, y):
     r = llop.int_mod(Signed, x, y)                 # <= truncates like in C
     if y < 0: u = -r
     else:     u = r
     return r + (y & (u >> INT_BITS_1))
 
-@jit.oopspec("int.py_mod(x, y)")
 def ll_int_py_mod_nonnegargs(x, y):
     from rpython.rlib.debug import ll_assert
     r = llop.int_mod(Signed, x, y)                 # <= truncates like in C
@@ -505,17 +493,10 @@ def ll_int_py_mod_zer(x, y):
     return ll_int_py_mod(x, y)
 
 def ll_int_py_mod_ovf(x, y):
-    # see comment in ll_int_py_div_ovf
     if (x == -sys.maxint - 1) & (y == -1):
         raise OverflowError
     return ll_int_py_mod(x, y)
 
-def ll_int_py_mod_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return ll_int_py_mod_ovf(x, y)
-
-@jit.oopspec("int.umod(x, y)")
 def ll_uint_py_mod(x, y):
     return llop.uint_mod(Unsigned, x, y)
 
@@ -530,7 +511,7 @@ if SignedLongLong == Signed:
     ll_ullong_py_mod     = ll_uint_py_mod
     ll_ullong_py_mod_zer = ll_uint_py_mod_zer
 else:
-    @jit.dont_look_inside
+    
     def ll_llong_py_mod(x, y):
         r = llop.llong_mod(SignedLongLong, x, y)    # <= truncates like in C
         if y < 0: u = -r
@@ -542,7 +523,7 @@ else:
             raise ZeroDivisionError
         return ll_llong_py_mod(x, y)
 
-    @jit.dont_look_inside
+    
     def ll_ullong_py_mod(x, y):
         return llop.ullong_mod(UnsignedLongLong, x, y)
 
@@ -551,7 +532,7 @@ else:
             raise ZeroDivisionError
         return ll_ullong_py_mod(x, y)
 
-@jit.dont_look_inside
+
 def ll_lllong_py_mod(x, y):
     r = llop.lllong_mod(SignedLongLongLong, x, y)  # <= truncates like in C
     if y < 0: u = -r
@@ -563,7 +544,7 @@ def ll_lllong_py_mod_zer(x, y):
         raise ZeroDivisionError
     return ll_lllong_py_mod(x, y)
 
-@jit.dont_look_inside
+
 def ll_ulllong_py_mod(x, y):
     return llop.ulllong_mod(UnsignedLongLongLong, x, y)
 
@@ -581,7 +562,6 @@ def ll_int_lshift_ovf(x, y):
         raise OverflowError("x<<y loosing bits or changing sign")
     return result
 
-@jit.oopspec("int.neg_ovf(x)")
 def ll_int_neg_ovf(x):
     if x == INT_MIN:
         raise OverflowError

@@ -25,8 +25,6 @@ def traceback(estimate_number_of_entries):
 
 
 LOC_INTERPRETED    = 0
-LOC_JITTED         = 1
-LOC_JITTED_INLINED = 2
 
 
 @specialize.arg(0, 1)
@@ -57,13 +55,5 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
         tagged_value = array_p[i + 1]
         if tag == rvmprof.VMPROF_CODE_TAG:
             loc = LOC_INTERPRETED
-            _traceback_one(CodeClass, callback, arg, tagged_value, loc)
-        elif tag == rvmprof.VMPROF_JITTED_TAG:
-            if i + 2 >= array_length:  # skip last entry, can't determine if
-                break                  # it's LOC_JITTED_INLINED or LOC_JITTED
-            if array_p[i + 2] == rvmprof.VMPROF_JITTED_TAG:
-                loc = LOC_JITTED_INLINED
-            else:
-                loc = LOC_JITTED
             _traceback_one(CodeClass, callback, arg, tagged_value, loc)
         i += 2

@@ -149,11 +149,6 @@ class GenerationGC(SemiSpaceGC):
     def get_young_var_basesize(nursery_size):
         return nursery_size // 4 - 1
 
-    @classmethod
-    def JIT_max_size_of_young_obj(cls):
-        min_nurs_size = cls.TRANSLATION_PARAMS['min_nursery_size']
-        return cls.get_young_fixedsize(min_nurs_size)
-
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")
@@ -476,11 +471,6 @@ class GenerationGC(SemiSpaceGC):
                     continue    # no need to remember this weakref any longer
             self.objects_with_weakrefs.append(obj)
 
-    # for the JIT: a minimal description of the write_barrier() method
-    # (the JIT assumes it is of the shape
-    #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
-    JIT_WB_IF_FLAG = GCFLAG_NO_YOUNG_PTRS
-
     def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_NO_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct)
@@ -488,12 +478,9 @@ class GenerationGC(SemiSpaceGC):
     def _setup_wb(self):
         DEBUG = self.DEBUG
         # The purpose of attaching remember_young_pointer to the instance
-        # instead of keeping it as a regular method is to help the JIT call it.
-        # Additionally, it makes the code in write_barrier() marginally smaller
-        # (which is important because it is inlined *everywhere*).
-        # For x86, there is also an extra requirement: when the JIT calls
-        # remember_young_pointer(), it assumes that it will not touch the SSE
-        # registers, so it does not save and restore them (that's a *hack*!).
+        # instead of keeping it as a regular function is that it makes the
+        # code in write_barrier() marginally smaller (which is important
+        # because it is inlined *everywhere*).
         def remember_young_pointer(addr_struct):
             #llop.debug_print(lltype.Void, "\tremember_young_pointer",
             #                 addr_struct)

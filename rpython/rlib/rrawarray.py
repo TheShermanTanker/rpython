@@ -1,6 +1,6 @@
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import jit, rgc
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pair
@@ -48,7 +48,7 @@ def get_raw_buf(ptr):
 get_raw_buf._always_inline_ = True
 
 
-@jit.dont_look_inside
+
 def ll_copy_list_to_raw_array(ll_list, dst_ptr):
     if rgc.must_split_gc_address_space():
         for i in range(ll_list.ll_length()):
@@ -66,7 +66,7 @@ def ll_copy_list_to_raw_array(ll_list, dst_ptr):
     # end of no-GC section
 
 
-@jit.dont_look_inside
+
 def ll_populate_list_from_raw_array(ll_list, src_ptr, length):
     ll_list._ll_resize(length)
     if rgc.must_split_gc_address_space():

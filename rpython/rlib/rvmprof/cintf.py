@@ -8,22 +8,15 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rlib import rthread, jit
+from rpython.rlib import rthread
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.config.translationoption import get_translation_config
-from rpython.jit.backend import detect_cpu
 
 class VMProfPlatformUnsupported(Exception):
     pass
 
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
-if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
-    try:
-        proc = detect_cpu.autodetect()
-        IS_SUPPORTED = proc.startswith('x86') or proc == 'aarch64'
-    except detect_cpu.ProcessorAutodetectError:
-        print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
@@ -193,64 +186,6 @@ def leave_code(s):
         assert vmprof_tl_stack.getraw() == s
     vmprof_tl_stack.setraw(s.c_next)
     lltype.free(s, flavor='raw')
-
-#
-# JIT notes:
-#
-# - When running JIT-generated assembler code, we have different custom
-#   code to build the VMPROFSTACK, so the functions above are not used.
-#   (It uses kind == VMPROF_JITTED_TAG and the VMPROFSTACK is allocated
-#   in the C stack.)
-#
-# - The jitcode for decorated_jitted_function() in rvmprof.py is
-#   special-cased by jtransform.py to produce this:
-#
-#        rvmprof_code(0, unique_id)
-#        res = inline_call FUNC         <- for func(*args)
-#        rvmprof_code(1, unique_id)
-#        return res
-#
-#   There is no 'catch_exception', but the second 'rvmprof_code' is
-#   meant to be executed even in case there was an exception.  This is
-#   done by a special case in pyjitpl.py and blackhole.py.  The point
-#   is that the above simple pattern can be detected by the blackhole
-#   interp, when it first rebuilds all the intermediate RPython
-#   frames; at that point it needs to call jit_rvmprof_code(0) on all
-#   intermediate RPython frames, so it does pattern matching to
-#   recognize when it must call that and with which 'unique_id' value.
-#
-# - The jitcode opcode 'rvmprof_code' doesn't produce any resop.  When
-#   meta-interpreting, it causes pyjitpl to call jit_rvmprof_code().
-#   As mentioned above, there is logic to call jit_rvmprof_code(1)
-#   even if we exit with an exception, even though there is no
-#   'catch_exception'.  There is similar logic inside the blackhole
-#   interpreter.
-
-
-def jit_rvmprof_code(leaving, unique_id):
-    if leaving == 0:
-        enter_code(unique_id)    # ignore the return value
-    else:
-        s = vmprof_tl_stack.getraw()
-        if s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG:
-            leave_code(s)
-        else:
-            # this is a HACK! in some strange situations related to stack
-            # overflows we end up in a situation where the stack is not
-            # properly popped somewhere, so we end up with an extra entry.
-            # instead of crashing with an assertion error (which was done
-            # previously) try to fix the situation by popping of the stack
-            # twice. if that also gives the wrong unique_id we still crash with
-            # an assert.
-
-            # the test that found this problem is test_recursive_pickle in
-            # python3 test_functools.py
-            assert (s.c_next and s.c_next.c_value == unique_id and
-                        s.c_next.c_kind == VMPROF_CODE_TAG)
-            s = vmprof_tl_stack.getraw()
-            leave_code(s)
-            s = vmprof_tl_stack.getraw()
-            leave_code(s)
 
 #
 # traceback support

@@ -4,7 +4,7 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 
 import math
 
-from rpython.rlib import rarithmetic, rfloat, objectmodel, jit
+from rpython.rlib import rarithmetic, rfloat, objectmodel
 from rpython.rtyper.lltypesystem.rffi import r_ulonglong, r_longlong, LONGLONG, ULONGLONG, cast
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 
@@ -270,7 +270,6 @@ def pack_float(wbuf, pos, x, size, be):
     value = rarithmetic.longlongmask(unsigned)
     pack_float_to_buffer(wbuf, pos, value, size, be)
 
-@jit.unroll_safe
 def pack_float_to_buffer(wbuf, pos, value, size, be):
     if be:
         # write in reversed order
@@ -282,7 +281,6 @@ def pack_float_to_buffer(wbuf, pos, value, size, be):
             c = chr((value >> (i * 8)) & 0xFF)
             wbuf.setitem(pos+i, c)
 
-@jit.unroll_safe
 def pack_float80(result, x, size, be):
     l = []
     unsigned = float_pack80(x, size)
@@ -296,7 +294,6 @@ def pack_float80(result, x, size, be):
         l.reverse()
     result.append("".join(l))
 
-@jit.unroll_safe
 def unpack_float(s, be):
     unsigned = r_ulonglong(0)
     for i in range(min(len(s), 8)):
@@ -304,7 +301,6 @@ def unpack_float(s, be):
         unsigned |= r_ulonglong(c) << (i * 8)
     return float_unpack(unsigned, len(s))
 
-@jit.unroll_safe
 def unpack_float80(s, be):
     QQ = [r_ulonglong(0), r_ulonglong(0)]
     for i in range(8):

@@ -10,8 +10,4 @@
 #  include "src/asm_gcc_x86_64.h"
 #endif
 
-#if defined(MS_WINDOWS) && defined(_MSC_VER)
-#  include "src/asm_msvc.h"
-#endif
-
 #endif /* _PYPY_ASM_H */

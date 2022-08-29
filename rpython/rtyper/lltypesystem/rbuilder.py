@@ -1,4 +1,4 @@
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc
 from rpython.rlib.objectmodel import enforceargs, dont_inline, always_inline
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rtyper.debug import ll_assert
@@ -154,21 +154,9 @@ def ll_grow_and_append(ll_builder, ll_str, start, size):
 
 @always_inline
 def ll_append(ll_builder, ll_str):
-    if jit.we_are_jitted():
-        ll_jit_append(ll_builder, ll_str)
-    else:
-        # no-jit case: inline the logic of _ll_append() in the caller
-        _ll_append(ll_builder, ll_str, 0, len(ll_str.chars))
+    _ll_append(ll_builder, ll_str, 0, len(ll_str.chars))
 
-@dont_inline
-def ll_jit_append(ll_builder, ll_str):
-    # jit case: first try special cases for known small lengths
-    if ll_jit_try_append_slice(ll_builder, ll_str, 0, len(ll_str.chars)):
-        return
-    # fall-back to do a residual call to ll_append_res0
-    ll_append_res0(ll_builder, ll_str)
 
-@jit.dont_look_inside
 def ll_append_res0(ll_builder, ll_str):
     _ll_append(ll_builder, ll_str, 0, len(ll_str.chars))
 
@@ -177,8 +165,8 @@ def ll_append_res0(ll_builder, ll_str):
 
 @always_inline
 def ll_append_char(ll_builder, char):
-    jit.conditional_call(ll_builder.current_pos == ll_builder.current_end,
-                         ll_grow_by, ll_builder, 1)
+    if ll_builder.current_pos == ll_builder.current_end:
+        ll_grow_by(ll_builder, 1)
     pos = ll_builder.current_pos
     ll_builder.current_pos = pos + 1
     ll_builder.current_buf.chars[pos] = char
@@ -188,39 +176,24 @@ def ll_append_char(ll_builder, char):
 
 @always_inline
 def ll_append_slice(ll_builder, ll_str, start, end):
-    if jit.we_are_jitted():
-        ll_jit_append_slice(ll_builder, ll_str, start, end)
-    else:
-        # no-jit case: inline the logic of _ll_append() in the caller
-        _ll_append(ll_builder, ll_str, start, end - start)
+    _ll_append(ll_builder, ll_str, start, end - start)
 
-@dont_inline
-def ll_jit_append_slice(ll_builder, ll_str, start, end):
-    # jit case: first try special cases for known small lengths
-    if ll_jit_try_append_slice(ll_builder, ll_str, start, end - start):
-        return
-    # fall-back to do a residual call to ll_append_res_slice
-    ll_append_res_slice(ll_builder, ll_str, start, end)
 
-@jit.dont_look_inside
 def ll_append_res_slice(ll_builder, ll_str, start, end):
     _ll_append(ll_builder, ll_str, start, end - start)
 
 # ------------------------------------------------------------
-# Special-casing for the JIT: appending strings (or slices) of
-# a known length up to MAX_N.  These functions all contain an
-# inlined copy of _ll_append(), but with a known small N, gcc
-# will compile the copy_string_contents() efficiently.
+# Special-casing to allow efficient translation
 
 MAX_N = 10
 
 def make_func_for_size(N):
-    @jit.dont_look_inside
+    
     def ll_append_0(ll_builder, ll_str):
         _ll_append(ll_builder, ll_str, 0, N)
     ll_append_0 = func_with_new_name(ll_append_0, "ll_append_0_%d" % N)
     #
-    @jit.dont_look_inside
+    
     def ll_append_start(ll_builder, ll_str, start):
         _ll_append(ll_builder, ll_str, start, N)
     ll_append_start = func_with_new_name(ll_append_start,
@@ -230,56 +203,14 @@ def make_func_for_size(N):
 unroll_func_for_size = unrolling_iterable([make_func_for_size(_n)
                                            for _n in range(2, MAX_N + 1)])
 
-@jit.unroll_safe
-def ll_jit_try_append_slice(ll_builder, ll_str, start, size):
-    if jit.isconstant(size):
-        if size == 0:
-            return True
-        # a special case: if the builder's pos and end are still contants
-        # (typically if the builder is still virtual), and if 'size' fits,
-        # then we don't need any reallocation and can just set the
-        # characters in the buffer, in a way that won't force anything.
-        if (jit.isconstant(ll_builder.current_pos) and
-            jit.isconstant(ll_builder.current_end) and
-            size <= (ll_builder.current_end - ll_builder.current_pos) and
-            size <= 16):
-            pos = ll_builder.current_pos
-            buf = ll_builder.current_buf
-            stop = pos + size
-            ll_builder.current_pos = stop
-            while pos < stop:
-                buf.chars[pos] = ll_str.chars[start]
-                pos += 1
-                start += 1
-            return True
-        # turn appends of length 1 into ll_append_char().
-        if size == 1:
-            ll_append_char(ll_builder, ll_str.chars[start])
-            return True
-        # turn appends of length 2 to 10 into residual calls to
-        # specialized functions, for the lengths 2 to 10, where
-        # gcc will optimize the known-length copy_string_contents()
-        # as much as possible.
-        for func0, funcstart, for_size in unroll_func_for_size:
-            if size == for_size:
-                if jit.isconstant(start) and start == 0:
-                    func0(ll_builder, ll_str)
-                else:
-                    funcstart(ll_builder, ll_str, start)
-                return True
-    return False     # use the fall-back path
-
 # ------------------------------------------------------------
 # builder.append_multiple_char()
 
 @always_inline
 def ll_append_multiple_char(ll_builder, char, times):
-    if jit.we_are_jitted():
-        if ll_jit_try_append_multiple_char(ll_builder, char, times):
-            return
     _ll_append_multiple_char(ll_builder, char, times)
 
-@jit.dont_look_inside
+
 def _ll_append_multiple_char(ll_builder, char, times):
     part1 = ll_builder.current_end - ll_builder.current_pos
     if times > part1:
@@ -296,36 +227,10 @@ def _ll_append_multiple_char(ll_builder, char, times):
     for i in xrange(pos, end):
         buf.chars[i] = char
 
-@jit.unroll_safe
-def ll_jit_try_append_multiple_char(ll_builder, char, size):
-    if jit.isconstant(size):
-        if size == 0:
-            return True
-        # a special case: if the builder's pos and end are still contants
-        # (typically if the builder is still virtual), and if 'size' fits,
-        # then we don't need any reallocation and can just set the
-        # characters in the buffer, in a way that won't force anything.
-        if (jit.isconstant(ll_builder.current_pos) and
-            jit.isconstant(ll_builder.current_end) and
-            size <= (ll_builder.current_end - ll_builder.current_pos) and
-            size <= 16):
-            pos = ll_builder.current_pos
-            buf = ll_builder.current_buf
-            stop = pos + size
-            ll_builder.current_pos = stop
-            while pos < stop:
-                buf.chars[pos] = char
-                pos += 1
-            return True
-        if size == 1:
-            ll_append_char(ll_builder, char)
-            return True
-    return False     # use the fall-back path
-
 # ------------------------------------------------------------
 # builder.append_charpsize()
 
-@jit.dont_look_inside
+
 def ll_append_charpsize(ll_builder, charp, size):
     part1 = ll_builder.current_end - ll_builder.current_pos
     if size > part1:
@@ -352,10 +257,7 @@ def ll_getlength(ll_builder):
 # ------------------------------------------------------------
 # builder.build()
 
-@jit.look_inside_iff(lambda ll_builder: jit.isvirtual(ll_builder))
 def ll_build(ll_builder):
-    # NB. usually the JIT doesn't look inside this function; it does
-    # so only in the simplest example where it could virtualize everything
     if ll_builder.extra_pieces:
         ll_fold_pieces(ll_builder)
     elif ll_builder.current_pos != ll_builder.total_size:

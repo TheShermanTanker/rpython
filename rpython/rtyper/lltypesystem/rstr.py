@@ -1,7 +1,7 @@
 from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit, types, objectmodel, rgc
+from rpython.rlib import types, objectmodel, rgc
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
     ll_hash_string, keepalive_until_here, specialize, enforceargs, dont_inline)
 from rpython.rlib.signature import signature
@@ -75,7 +75,6 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
     _get_raw_buf._always_inline_ = True
 
-    @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
     def copy_string_contents(src, dst, srcstart, dststart, length):
         """Copies 'length' characters from the 'src' string to the 'dst'
@@ -113,7 +112,6 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_contents = func_with_new_name(copy_string_contents,
                                               'copy_%s_contents' % name)
 
-    @jit.oopspec('stroruni.copy_string_to_raw(src, ptrdst, srcstart, length)')
     def copy_string_to_raw(src, ptrdst, srcstart, length):
         """
         Copies 'length' characters from the 'src' string to the 'ptrdst'
@@ -142,7 +140,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_string_to_raw._always_inline_ = True
     copy_string_to_raw = func_with_new_name(copy_string_to_raw, 'copy_%s_to_raw' % name)
 
-    @jit.dont_look_inside
+    
     @signature(types.any(), types.any(), types.int(), types.int(),
                returns=types.none())
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
@@ -255,7 +253,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         self.ll = LLHelpers
         self.malloc = mallocunicode
 
-    @jit.elidable
+    
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
@@ -270,14 +268,14 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
             result.chars[i] = cast_primitive(Char, c)
         return result
 
-    @jit.elidable
+    
     def ll_unicode(self, s):
         if s:
             return s
         else:
             return self.ll.ll_constant_unicode(u'None')
 
-    @jit.elidable
+    
     def ll_encode_latin1(self, s):
         length = len(s.chars)
         result = mallocstr(length)
@@ -308,7 +306,7 @@ class LLHelpers(AbstractLLHelpers):
     from rpython.rtyper.annlowlevel import llstr, llunicode
 
     @staticmethod
-    @jit.elidable
+    
     def ll_str_mul(s, times):
         if times < 0:
             times = 0
@@ -331,7 +329,7 @@ class LLHelpers(AbstractLLHelpers):
         return newstr
 
     @staticmethod
-    @jit.elidable
+    
     def ll_char_mul(ch, times):
         if typeOf(ch) is Char:
             malloc = mallocstr
@@ -369,9 +367,7 @@ class LLHelpers(AbstractLLHelpers):
         s.chars[0] = ch
         return s
 
-    # @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
     @staticmethod
-    @jit.oopspec("str.str2unicode(str)")
     def ll_str2unicode(str):
         lgt = len(str.chars)
         s = mallocunicode(lgt)
@@ -394,19 +390,18 @@ class LLHelpers(AbstractLLHelpers):
     @staticmethod
     def ll_strhash(s):
         if s:
-            return jit.conditional_call_elidable(s.hash,
-                                                 LLHelpers._ll_strhash, s)
+            if s.hash == 0 or s.hash is None:
+                s.hash = LLHelpers._ll_strhash(s)
+            return s.hash
         else:
             return 0
 
     @staticmethod
     @dont_inline
-    @jit.dont_look_inside
     def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
-        # special non-computed-yet value.  Also, jit.conditional_call_elidable
-        # always checks for zero, for now.
+        # special non-computed-yet value.  
         x = ll_hash_string(s)
         if x == 0:
             x = 29872897
@@ -423,8 +418,6 @@ class LLHelpers(AbstractLLHelpers):
         return s.hash     # assumes that the hash is already computed
 
     @staticmethod
-    @jit.elidable
-    @jit.oopspec('stroruni.concat(s1, s2)')
     def ll_strconcat(s1, s2):
         len1 = s1.length()
         len2 = s2.length()
@@ -444,7 +437,7 @@ class LLHelpers(AbstractLLHelpers):
         return newstr
 
     @staticmethod
-    @jit.elidable
+    
     def ll_strip(s, ch, left, right):
         s_len = len(s.chars)
         if s_len == 0:
@@ -465,7 +458,7 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.elidable
+    
     def ll_strip_default(s, left, right):
         s_len = len(s.chars)
         if s_len == 0:
@@ -486,7 +479,7 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.elidable
+    
     def ll_strip_multiple(s, s2, left, right):
         s_len = len(s.chars)
         if s_len == 0:
@@ -507,7 +500,7 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.elidable
+    
     def ll_upper(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -522,7 +515,7 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.elidable
+    
     def ll_lower(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -571,8 +564,6 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.elidable
-    @jit.oopspec('stroruni.cmp(s1, s2)')
     def ll_strcmp(s1, s2):
         if not s1 and not s2:
             return True
@@ -596,8 +587,6 @@ class LLHelpers(AbstractLLHelpers):
         return len1 - len2
 
     @staticmethod
-    @jit.elidable
-    @jit.oopspec('stroruni.equal(s1, s2)')
     def ll_streq(s1, s2):
         if s1 == s2:       # also if both are NULLs
             return True
@@ -617,7 +606,7 @@ class LLHelpers(AbstractLLHelpers):
         return True
 
     @staticmethod
-    @jit.elidable
+    
     def ll_startswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -640,7 +629,7 @@ class LLHelpers(AbstractLLHelpers):
         return s.chars[0] == ch
 
     @staticmethod
-    @jit.elidable
+    
     def ll_endswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -664,7 +653,7 @@ class LLHelpers(AbstractLLHelpers):
         return s.chars[len(s.chars) - 1] == ch
 
     @staticmethod
-    @jit.elidable
+    
     @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_find_char(s, ch, start, end):
         i = start
@@ -677,7 +666,7 @@ class LLHelpers(AbstractLLHelpers):
         return -1
 
     @staticmethod
-    @jit.elidable
+    
     @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
@@ -690,7 +679,7 @@ class LLHelpers(AbstractLLHelpers):
         return -1
 
     @staticmethod
-    @jit.elidable
+    
     def ll_count_char(s, ch, start, end):
         count = 0
         i = start
@@ -719,11 +708,9 @@ class LLHelpers(AbstractLLHelpers):
             if m == 0:
                 return start
             res = LLHelpers.ll_find_char(s1, s2.chars[0], start, end)
-            jit.record_exact_value(res < end, True)
             return res
 
         res = LLHelpers.ll_search(s1, s2, start, end, SEARCH_FIND)
-        jit.record_exact_value(res < end, True)
         return res
 
     @staticmethod
@@ -742,11 +729,9 @@ class LLHelpers(AbstractLLHelpers):
             if m == 0:
                 return end
             res = LLHelpers.ll_rfind_char(s1, s2.chars[0], start, end)
-            jit.record_exact_value(res < end, True)
             return res
 
         res = LLHelpers.ll_search(s1, s2, start, end, SEARCH_RFIND)
-        jit.record_exact_value(res < end, True)
         return res
 
     @classmethod
@@ -779,10 +764,8 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @signature(types.int(), types.any(), returns=types.any())
-    @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
-        items, length))
     def ll_join_strs(length, items):
-        # Special case for length 1 items, helps both the JIT and other code
+        # Special case for length 1 items, helps other code
         if length == 1:
             return items[0]
 
@@ -813,7 +796,6 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.look_inside_iff(lambda length, chars, RES: jit.isconstant(length) and jit.isvirtual(chars))
     def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder
         # at some point soon
@@ -833,16 +815,14 @@ class LLHelpers(AbstractLLHelpers):
         return result
 
     @staticmethod
-    @jit.oopspec('stroruni.slice(s1, start, stop)')
     @signature(types.any(), types.int(), types.int(), returns=types.any())
-    @jit.elidable
+    
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
         assert start >= 0
         # If start > stop, return a empty string. This can happen if the start
-        # is greater than the length of the string. Use < instead of <= to avoid
-        # creating another path for the JIT when start == stop.
-        if lgt < 0:
+        # is greater than the length of the string.
+        if lgt <= 0:
             return s1.empty()
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
@@ -855,14 +835,10 @@ class LLHelpers(AbstractLLHelpers):
     @staticmethod
     @signature(types.any(), types.int(), types.int(), returns=types.any())
     def ll_stringslice_startstop(s1, start, stop):
-        if jit.we_are_jitted():
-            if stop > len(s1.chars):
-                stop = len(s1.chars)
-        else:
-            if stop >= len(s1.chars):
-                if start == 0:
-                    return s1
-                stop = len(s1.chars)
+        if stop >= len(s1.chars):
+            if start == 0:
+                return s1
+            stop = len(s1.chars)
         return LLHelpers._ll_stringslice(s1, start, stop)
 
     @staticmethod
@@ -1006,7 +982,7 @@ class LLHelpers(AbstractLLHelpers):
         return res
 
     @staticmethod
-    @jit.elidable
+    
     def ll_replace_chr_chr(s, c1, c2):
         length = len(s.chars)
         newstr = s.malloc(length)
@@ -1022,7 +998,7 @@ class LLHelpers(AbstractLLHelpers):
         return newstr
 
     @staticmethod
-    @jit.elidable
+    
     def ll_contains(s, c):
         chars = s.chars
         strlen = len(chars)
@@ -1034,7 +1010,7 @@ class LLHelpers(AbstractLLHelpers):
         return False
 
     @staticmethod
-    @jit.elidable
+    
     def ll_int(s, base):
         if not 2 <= base <= 36:
             raise ValueError
@@ -1186,7 +1162,7 @@ class LLHelpers(AbstractLLHelpers):
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
 
     @staticmethod
-    @jit.dont_look_inside
+    
     def ll_string2list(RESLIST, src):
         length = len(src.chars)
         lst = RESLIST.ll_newlist(length)

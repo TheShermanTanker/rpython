@@ -4,7 +4,7 @@ import py
 import sys
 
 from rpython.translator import cdir
-from rpython.rlib import jit, rposix, objectmodel
+from rpython.rlib import rposix, objectmodel
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
@@ -69,7 +69,6 @@ math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)
 math_sin = llexternal('sin', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_cos = llexternal('cos', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 
-@jit.elidable
 def sqrt_nonneg(x):
     return math_sqrt(x)
 sqrt_nonneg.oopspec = "math.sqrt_nonneg(x)"
@@ -110,24 +109,20 @@ _lib_isnan = llexternal('_isnan', [lltype.Float], lltype.Signed)
 _lib_finite = llexternal('_finite', [lltype.Float], lltype.Signed)
 
 def ll_math_isnan(y):
-    # By not calling into the external function the JIT can inline this.
     # Floats are awesome.
-    if use_library_isinf_isnan and not jit.we_are_jitted():
+    if use_library_isinf_isnan:
         return bool(_lib_isnan(y))
     return y != y
 
 def ll_math_isinf(y):
-    if jit.we_are_jitted():
-        return (y + VERY_LARGE_FLOAT) == y
-    elif use_library_isinf_isnan:
+    if use_library_isinf_isnan:
         return not _lib_finite(y) and not _lib_isnan(y)
     else:
         return y == INFINITY or y == -INFINITY
 
 def ll_math_isfinite(y):
-    # Use a custom hack that is reasonably well-suited to the JIT.
     # Floats are awesome (bis).
-    if use_library_isinf_isnan and not jit.we_are_jitted():
+    if use_library_isinf_isnan:
         return bool(_lib_finite(y))
     return (y - y) == 0.0    # (y - y) is NaN if y is an infinite or NaN
 

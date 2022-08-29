@@ -50,26 +50,3 @@ class VirtualizableInstanceRepr(InstanceRepr):
         # if not flags.get('access_directly'):
         if self.my_redirected_fields.get(cname.value):
             cflags = inputconst(lltype.Void, flags)
-            llops.genop('jit_force_virtualizable', [vinst, cname, cflags])
-
-
-def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
-    # funcptr should be a function pointer with a VTYPEPTR argument
-    c_funcptr = inputconst(lltype.typeOf(funcptr), funcptr)
-    count = 0
-    for graph in graphs:
-        for block in graph.iterblocks():
-            if not block.operations:
-                continue
-            newoplist = []
-            for i, op in enumerate(block.operations):
-                if (op.opname == 'jit_force_virtualizable' and
-                        op.args[0].concretetype == VTYPEPTR):
-                    if op.args[-1].value.get('access_directly', False):
-                        continue
-                    op.opname = 'direct_call'
-                    op.args = [c_funcptr, op.args[0]]
-                    count += 1
-                newoplist.append(op)
-            block.operations = newoplist
-    log("replaced %d 'jit_force_virtualizable' with %r" % (count, funcptr))

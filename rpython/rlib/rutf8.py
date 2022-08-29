@@ -19,7 +19,7 @@ import sys
 from rpython.rlib.objectmodel import enforceargs, we_are_translated, specialize
 from rpython.rlib.objectmodel import always_inline, dont_inline, try_inline
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit, types, rarithmetic
+from rpython.rlib import types, rarithmetic
 from rpython.rlib.signature import signature, finishsigs
 from rpython.rlib.types import char, none
 from rpython.rlib.rarithmetic import r_uint
@@ -136,7 +136,7 @@ def next_codepoint_pos(code, pos):
     chr1 = ord(code[pos])
     if chr1 <= 0x7F:
         return pos + 1
-    if _is_64bit and not jit.we_are_jitted():
+    if _is_64bit:
         # optimized for Intel x86-64 by hand
         res = pos + 1 + (
             ((chr1 > 0xDF) << 1) +
@@ -245,7 +245,7 @@ def check_ascii(s):
         return
     raise CheckError(res)
 
-@jit.elidable
+
 def first_non_ascii_char(s):
     for i in range(len(s)):
         if ord(s[i]) > 0x7F:
@@ -369,7 +369,7 @@ def get_utf8_length(s, start=0, end=-1):
         end = len(s)
     return codepoints_in_utf8(s, start, end)
 
-@jit.elidable
+
 def _check_utf8(s, allow_surrogates, start, stop):
     pos = start
     continuation_bytes = 0
@@ -467,7 +467,7 @@ def reencode_utf8_with_surrogates(utf8):
     return s.build()
 
 
-@jit.elidable
+
 def codepoints_in_utf8(value, start=0, end=sys.maxint):
     """Return the number of codepoints in the UTF-8 byte string
     'value[start:end]'.  Assumes 0 <= start <= len(value) and start <= end.
@@ -485,7 +485,7 @@ def codepoints_in_utf8(value, start=0, end=sys.maxint):
     return length
 
 
-@jit.elidable
+
 def surrogate_in_utf8(utf8):
     """Check if the UTF-8 byte string 'value' contains a surrogate.
     The 'value' argument must be otherwise correctly formed for UTF-8.
@@ -544,7 +544,7 @@ def create_utf8_index_storage(utf8, utf8len):
         break
     return storage
 
-@jit.elidable
+
 def codepoint_position_at_index(utf8, storage, index):
     """ Return byte index of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE.  The index must be smaller than
@@ -572,7 +572,7 @@ def _pos_at_index(utf8, index):
         pos = next_codepoint_pos(utf8, pos)
     return pos
 
-@jit.elidable
+
 def codepoint_at_index(utf8, storage, index):
     """ Return codepoint of a character inside utf8 encoded string, given
     storage of type UTF8_INDEX_STORAGE
@@ -590,7 +590,7 @@ def codepoint_at_index(utf8, storage, index):
         bytepos = next_codepoint_pos(utf8, bytepos)
     return codepoint_at_pos(utf8, bytepos)
 
-@jit.elidable
+
 def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     """ Return the character index for which
     codepoint_position_at_index(index) == bytepos.
@@ -657,7 +657,7 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None, u
     if pass_printable:
         assert unicodedb is not None, "need to give unicodedb explicitly!"
 
-    @jit.elidable
+    
     def unicode_escape(s):
         size = len(s)
         result = StringBuilder(size)

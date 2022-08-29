@@ -103,10 +103,4 @@ static void _PyPy_set_387controlword(unsigned short cw) {
 #endif  /* !PYPY_CPU_HAS_STANDARD_PRECISION */
 
 
-#ifdef PYPY_X86_CHECK_SSE2
-#define PYPY_X86_CHECK_SSE2_DEFINED
-RPY_EXTERN void pypy_x86_check_sse2(void);
-#endif
-
-
 #define RPy_YieldProcessor()  asm("pause")

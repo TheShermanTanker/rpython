@@ -119,8 +119,7 @@ GCFLAG_EXTRA        = first_gcflag << 5
 # one bit per 'card_page_indices' indices.
 GCFLAG_HAS_CARDS    = first_gcflag << 6
 GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
-# note that GCFLAG_CARDS_SET is the most significant bit of a byte:
-# this is required for the JIT (x86)
+# note that GCFLAG_CARDS_SET is the most significant bit of a byte
 
 # another flag set only on specific objects: the ll_dummy_value from
 # rpython.rtyper.rmodel
@@ -699,8 +698,7 @@ class MiniMarkGC(MovingGCBase):
         specified as 0 if the object is not varsized.  The returned
         object is fully initialized and zero-filled."""
         #
-        # Here we really need a valid 'typeid', not 0 (as the JIT might
-        # try to send us if there is still a bug).
+        # Here we really need a valid 'typeid', not 0.
         ll_assert(bool(self.combine(typeid, 0)),
                   "external_malloc: typeid == 0")
         #
@@ -1035,33 +1033,6 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # Write barrier
 
-    # for the JIT: a minimal description of the write_barrier() method
-    # (the JIT assumes it is of the shape
-    #  "if addr_struct.int0 & JIT_WB_IF_FLAG: remember_young_pointer()")
-    JIT_WB_IF_FLAG = GCFLAG_TRACK_YOUNG_PTRS
-
-    # for the JIT to generate custom code corresponding to the array
-    # write barrier for the simplest case of cards.  If JIT_CARDS_SET
-    # is already set on an object, it will execute code like this:
-    #    MOV eax, index
-    #    SHR eax, JIT_WB_CARD_PAGE_SHIFT
-    #    XOR eax, -8
-    #    BTS [object], eax
-    if TRANSLATION_PARAMS['card_page_indices'] > 0:
-        JIT_WB_CARDS_SET = GCFLAG_CARDS_SET
-        JIT_WB_CARD_PAGE_SHIFT = 1
-        while ((1 << JIT_WB_CARD_PAGE_SHIFT) !=
-               TRANSLATION_PARAMS['card_page_indices']):
-            JIT_WB_CARD_PAGE_SHIFT += 1
-
-    @classmethod
-    def JIT_max_size_of_young_obj(cls):
-        return cls.TRANSLATION_PARAMS['large_object']
-
-    @classmethod
-    def JIT_minimal_size_in_nursery(cls):
-        return cls.minimal_size_in_nursery
-
     def write_barrier(self, addr_struct):
         if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
             self.remember_young_pointer(addr_struct)
@@ -1098,8 +1069,7 @@ class MiniMarkGC(MovingGCBase):
             # However, it isn't really a win, because then sometimes
             # we're going to call this function a lot of times for the
             # same object; moreover we'd need to pass the 'newvalue' as
-            # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.
+            # an argument here.
             self.old_objects_pointing_to_young.append(addr_struct)
             objhdr = self.header(addr_struct)
             objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
@@ -1167,22 +1137,6 @@ class MiniMarkGC(MovingGCBase):
         assert self.card_page_indices > 0
         self.remember_young_pointer_from_array2 = (
             remember_young_pointer_from_array2)
-
-        def jit_remember_young_pointer_from_array(addr_array):
-            # minimal version of the above, with just one argument,
-            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
-            # but GCFLAG_CARDS_SET is cleared.  This tries to set
-            # GCFLAG_CARDS_SET if possible; otherwise, it falls back
-            # to remember_young_pointer().
-            objhdr = self.header(addr_array)
-            if objhdr.tid & GCFLAG_HAS_CARDS:
-                self.old_objects_with_cards_set.append(addr_array)
-                objhdr.tid |= GCFLAG_CARDS_SET
-            else:
-                self.remember_young_pointer(addr_array)
-
-        self.jit_remember_young_pointer_from_array = (
-            jit_remember_young_pointer_from_array)
 
     def get_card(self, obj, byteindex):
         size_gc_header = self.gcheaderbuilder.size_gc_header

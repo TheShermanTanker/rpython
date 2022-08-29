@@ -206,19 +206,19 @@ def enforceargs(*types_, **kwds):
     return decorator
 
 def always_inline(func):
-    """ mark the function as to-be-inlined by the RPython optimizations (not
-    the JIT!), no matter its size."""
+    """ mark the function as to-be-inlined by the RPython optimizations,
+    no matter its size."""
     func._always_inline_ = True
     return func
 
 def dont_inline(func):
-    """ mark the function as never-to-be-inlined by the RPython optimizations
-    (not the JIT!), no matter its size."""
+    """ mark the function as never-to-be-inlined by the RPython optimizations,
+    no matter its size."""
     func._dont_inline_ = True
     return func
 
 def try_inline(func):
-    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    """ tell the RPython inline to try to inline this function,
     no matter its size."""
     func._always_inline_ = 'try'
     return func

@@ -3,7 +3,7 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rlib import objectmodel, jit
+from rpython.rlib import objectmodel
 from rpython.rtyper.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
@@ -464,7 +464,6 @@ def ll_dict_setitem(d, key, value):
 
 # It may be safe to look inside always, it has a few branches though, and their
 # frequencies needs to be investigated.
-@jit.look_inside_iff(lambda d, key, value, hash, i: jit.isvirtual(d) and jit.isconstant(key))
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -516,7 +515,6 @@ def ll_dict_delitem(d, key):
         raise KeyError
     _ll_dict_del(d, i)
 
-@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
@@ -539,8 +537,7 @@ def _ll_dict_del(d, i):
     #if num_entries > DICT_INITSIZE and d.num_items <= num_entries / 4:
     #    ll_dict_resize(d)
     # A previous xxx: move the size checking and resize into a single
-    # call which is opaque to the JIT when the dict isn't virtual, to
-    # avoid extra branches.
+    # call when the dict isn't virtual.
 
 def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
@@ -574,8 +571,6 @@ def _ll_dict_resize_to(d, num_extra):
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
-@jit.look_inside_iff(lambda d, key, hash: jit.isvirtual(d) and jit.isconstant(key))
-@jit.oopspec('dict.lookup(d, key, hash)')
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO
@@ -709,10 +704,6 @@ def ll_dictiter(ITERPTR, d):
     iter.index = 0
     return iter
 
-@jit.look_inside_iff(lambda iter: jit.isvirtual(iter)
-                     and (iter.dict is None or
-                          jit.isvirtual(iter.dict)))
-@jit.oopspec("dictiter.next(iter)")
 def _ll_dictnext(iter):
     dict = iter.dict
     if dict:
@@ -814,8 +805,8 @@ def ll_prepare_dict_update(d, num_extra):
     # If num_extra is much greater than d.num_items the conditional_call
     # will trigger anyway, which is really the goal.
     x = num_extra - d.num_items
-    jit.conditional_call(d.resize_counter <= x * 3,
-                         _ll_dict_resize_to, d, num_extra)
+    if d.resize_counter <= x * 3:
+        _ll_dict_resize_to(d, num_extra)
 
 # this is an implementation of keys(), values() and items()
 # in a single function.

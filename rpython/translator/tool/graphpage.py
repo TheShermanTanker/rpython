@@ -106,10 +106,6 @@ class FlowGraphPage(GraphPage):
         # make the dictionary of links -- one per annotated variable
         self.current_value = {}
 
-        #from rpython.jit.hintannotator.annotator import HintAnnotator
-        #if isinstance(self.annotator, HintAnnotator):
-        #    return
-
         vars = {}
         for graph in graphs:
             for block in safe_iterblocks(graph):

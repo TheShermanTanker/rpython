@@ -171,19 +171,11 @@ COLORS = {
     'gc-': (224, 0, 0),
     'gc-minor': (192, 0, 16),
     'gc-collect': (255, 0, 0),
-    'jit-': (0, 224, 0),
-    'jit-running': (192, 255, 160),
-    'jit-tracing': (0, 255, 0),
-    'jit-optimize': (160, 255, 0),
-    'jit-backend': (0, 255, 144),
-    'jit-blackhole': (0, 160, 0),
     }
 SUMMARY = {
     None: 'normal execution',
     '': 'other',
     'gc-': 'gc',
-    'jit-': 'jit',
-    'jit-running': 'jit-running',
     }
 
 def getcolor(category):

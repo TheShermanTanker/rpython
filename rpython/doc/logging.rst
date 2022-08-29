@@ -22,23 +22,10 @@ PYPYLOG
 The ``PYPYLOG`` environment variable enables debugging output.  For
 example::
 
-   PYPYLOG=jit:log
+   PYPYLOG=gc:log
 
-means enabling all debugging output from the JIT, and writing to a
-file called ``log``.  More precisely, the condition ``jit`` means
-enabling output of all sections whose name start with ``jit``; other
-interesting names to use here are ``gc`` to get output from the GC, or
-``jit-backend`` to get only output from the JIT's machine code
-backend.  It is possible to use several prefixes, like in the
-following example::
-
-   PYPYLOG=jit-log-opt,jit-backend:log
-
-which outputs sections containing to the optimized loops plus anything
-produced from the JIT backend.  The above example is what you need for
-jitviewer_.
-
-.. _jitviewer: https://bitbucket.org/pypy/jitviewer
+means enabling all debugging output from the GC, and writing to a
+file called ``log``.  Note that is possible to use several prefixes.
 
 The filename can be given as ``-`` to dump the log to stderr.
 

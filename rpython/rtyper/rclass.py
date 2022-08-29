@@ -715,7 +715,6 @@ class InstanceRepr(Repr):
     def hook_setfield(self, vinst, fieldname, llops):
         if self.is_quasi_immutable(fieldname):
             c_fieldname = inputconst(Void, 'mutate_' + fieldname)
-            llops.genop('jit_force_quasi_immutable', [vinst, c_fieldname])
 
     def is_quasi_immutable(self, fieldname):
         search1 = fieldname + '?'
@@ -899,10 +898,6 @@ class InstanceRepr(Repr):
         # want to do more like call an app-level __del__() method, they
         # enqueue the object instead, and the actual call is done later.
         #
-        # Here, as a quick way to check "not doing too much", we check
-        # that from no RPython-level __del__() method we can reach a
-        # JitDriver.
-        #
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
         callgraph = rtyper.annotator.translator.callgraph.values()
@@ -912,16 +907,6 @@ class InstanceRepr(Repr):
             for caller, callee in callgraph:
                 if caller in seen and callee not in seen:
                     func = getattr(callee, 'func', None)
-                    if getattr(func, '_dont_reach_me_in_del_', False):
-                        lst = [str(callee)]
-                        g = caller
-                        while g:
-                            lst.append(str(g))
-                            g = seen.get(g)
-                        lst.append('')
-                        raise TyperError("the RPython-level __del__() method "
-                                         "in %r calls:%s" %
-                                         (graph, '\n\t'.join(lst[::-1])))
                     if getattr(func, '_cannot_really_call_random_things_',
                                False):
                         continue

@@ -4,8 +4,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
-from rpython.rlib import jit
-from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec
 
 _seen_specname = {}
 
@@ -88,7 +86,6 @@ class CompiledPattern(object):
         return up != lo and rsre_char.check_charset(ctx, self, ppos, up)
 
     def pat(self, index):
-        jit.promote(self)
         check_nonneg(index)
         result = self.pattern[index]
         # Check that we only return non-negative integers from this helper.
@@ -364,9 +361,9 @@ class BranchMatchResult(MatchResult):
         self.start_ptr = ptr
         self.start_marks = marks
 
-    @jit.unroll_safe
+    
     def find_first_result(self, ctx, pattern):
-        ppos = jit.hint(self.ppos, promote=True)
+        ppos = self.ppos
         while pattern.pat(ppos):
             result = sre_match(ctx, pattern, ppos + 1, self.start_ptr, self.start_marks)
             ppos += pattern.pat(ppos)
@@ -377,10 +374,6 @@ class BranchMatchResult(MatchResult):
     find_next_result = find_first_result
 
 class RepeatOneMatchResult(MatchResult):
-    install_jitdriver('RepeatOne',
-                      greens=['nextppos', 'pattern'],
-                      reds=['ptr', 'self', 'ctx'],
-                      debugprint=(1, 0))   # indices in 'greens'
 
     def __init__(self, nextppos, minptr, ptr, marks):
         self.nextppos = nextppos
@@ -392,9 +385,6 @@ class RepeatOneMatchResult(MatchResult):
         ptr = self.start_ptr
         nextppos = self.nextppos
         while ptr >= self.minptr:
-            ctx.jitdriver_RepeatOne.jit_merge_point(
-                self=self, ptr=ptr, ctx=ctx, nextppos=nextppos,
-                pattern=pattern)
             result = sre_match(ctx, pattern, nextppos, ptr, self.start_marks)
             try:
                 ptr = ctx.prev_indirect(ptr)
@@ -408,10 +398,6 @@ class RepeatOneMatchResult(MatchResult):
 
 
 class MinRepeatOneMatchResult(MatchResult):
-    install_jitdriver('MinRepeatOne',
-                      greens=['nextppos', 'ppos3', 'pattern'],
-                      reds=['max_count', 'ptr', 'self', 'ctx'],
-                      debugprint=(2, 0))   # indices in 'greens'
 
     def __init__(self, nextppos, ppos3, max_count, ptr, marks):
         self.nextppos = nextppos
@@ -426,9 +412,6 @@ class MinRepeatOneMatchResult(MatchResult):
         max_count = self.max_count
         ppos3 = self.ppos3
         while max_count >= 0:
-            ctx.jitdriver_MinRepeatOne.jit_merge_point(
-                self=self, ptr=ptr, ctx=ctx, nextppos=nextppos, ppos3=ppos3,
-                max_count=max_count, pattern=pattern)
             result = sre_match(ctx, pattern, nextppos, ptr, self.start_marks)
             if result is not None:
                 self.subresult = result
@@ -476,10 +459,6 @@ class Pending(object):
         self.next = next     # chained list
 
 class MaxUntilMatchResult(AbstractUntilMatchResult):
-    install_jitdriver('MaxUntil',
-                      greens=['ppos', 'tailppos', 'match_more', 'pattern'],
-                      reds=['ptr', 'marks', 'self', 'ctx'],
-                      debugprint=(3, 0, 2))
 
     def find_first_result(self, ctx, pattern):
         return self.search_next(ctx, pattern, match_more=True)
@@ -493,10 +472,6 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
         ptr = self.cur_ptr
         marks = self.cur_marks
         while True:
-            ctx.jitdriver_MaxUntil.jit_merge_point(
-                ppos=ppos, tailppos=tailppos, match_more=match_more,
-                ptr=ptr, marks=marks, self=self, ctx=ctx,
-                pattern=pattern)
             if match_more:
                 max = pattern.pat(ppos+2)
                 if max == rsre_char.MAXREPEAT or self.num_pending < max:
@@ -551,7 +526,6 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
         return self.search_next(ctx, pattern, resume=True)
 
     def search_next(self, ctx, pattern, resume):
-        # XXX missing jit support here
         ppos = self.ppos
         min = pattern.pat(ppos+1)
         max = pattern.pat(ppos+2)
@@ -600,7 +574,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
 # ____________________________________________________________
 
 @specializectx
-@jit.unroll_safe
+
 def sre_match(ctx, pattern, ppos, ptr, marks):
     """Returns either None or a MatchResult object.  Usually we only need
     the first result, but there is the case of REPEAT...UNTIL where we
@@ -609,12 +583,6 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
     while True:
         op = pattern.pat(ppos)
         ppos += 1
-
-        #jit.jit_debug("sre_match", op, ppos, ptr)
-        #
-        # When using the JIT, calls to sre_match() must always have a constant
-        # (green) argument for 'ppos'.  If not, the following assert fails.
-        jit.assert_green(op)
 
         if op == consts.OPCODE_FAILURE:
             return
@@ -1024,8 +992,7 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
     ptrp1 = ctx.next(ptr)
     # Check the first character directly.  If it doesn't match, we are done.
     # The idea is to be fast for cases like re.search("b+"), where we expect
-    # the common case to be a non-match.  It's much faster with the JIT to
-    # have the non-match inlined here rather than detect it in the fre() call.
+    # the common case to be a non-match.  
     op = pattern.pat(ppos)
     for op1, checkerfn in unroll_char_checker:
         if op1 == op:
@@ -1055,7 +1022,6 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
 
 @specializectx
 def general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
-    # moved into its own JIT-opaque function
     end = ctx.end
     if maxcount != rsre_char.MAXREPEAT:
         # adjust end
@@ -1113,29 +1079,16 @@ def _make_fre(checkerfn):
         def fre(ctx, pattern, ptr, end, ppos):
             return end
     elif checkerfn in (match_IN, match_IN_IGNORE, match_IN_UNI_IGNORE):
-        # produces three jitdrivers:
-        #     MatchIn
-        #     MatchInIgnore
-        #     MatchInUniIgnore
         name = checkerfn.__name__.title().replace('_', '')
-        method_name = "jitdriver_" + name
-        install_jitdriver_spec(name,
-                               greens=['ppos', 'pattern'],
-                               reds=['ptr', 'end', 'ctx'],
-                               debugprint=(1, 0))
         @specializectx
         def fre(ctx, pattern, ptr, end, ppos):
             while True:
-                getattr(ctx, method_name).jit_merge_point(ctx=ctx, ptr=ptr,
-                                                      end=end, ppos=ppos,
-                                                      pattern=pattern)
                 if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
                     ptr = ctx.next(ptr)
                 else:
                     return ptr
     else:
-        # in the other cases, the fre() function is not JITted at all
-        # and is present as a residual call.
+        # in the other cases, the fre() function is is present as a residual call.
         @specializectx
         def fre(ctx, pattern, ptr, end, ppos):
             while ptr < end and checkerfn(ctx, pattern, ptr, ppos):
@@ -1276,15 +1229,10 @@ def search(pattern, string, start=0, end=sys.maxint):
     else:
         return None
 
-install_jitdriver('Match',
-                  greens=['pattern'], reds=['ctx'],
-                  debugprint=(0,))
-
 def match_context(ctx, pattern):
     ctx.original_pos = ctx.match_start
     if ctx.end < ctx.match_start:
         return False
-    ctx.jitdriver_Match.jit_merge_point(ctx=ctx, pattern=pattern)
     return sre_match(ctx, pattern, 0, ctx.match_start, None) is not None
 
 def search_context(ctx, pattern):
@@ -1307,16 +1255,9 @@ def search_context(ctx, pattern):
         return charset_search(ctx, pattern, base)
     return regular_search(ctx, pattern, base)
 
-install_jitdriver('RegularSearch',
-                  greens=['base', 'pattern'],
-                  reds=['start', 'ctx'],
-                  debugprint=(1, 0))
-
 def regular_search(ctx, pattern, base):
     start = ctx.match_start
     while True:
-        ctx.jitdriver_RegularSearch.jit_merge_point(ctx=ctx, pattern=pattern,
-                                                    start=start, base=base)
         if sre_match(ctx, pattern, base, start, None) is not None:
             ctx.match_start = start
             return True
@@ -1325,10 +1266,6 @@ def regular_search(ctx, pattern, base):
         start = ctx.next_indirect(start)
     return False
 
-install_jitdriver_spec("LiteralSearch",
-                       greens=['base', 'character', 'pattern'],
-                       reds=['start', 'ctx'],
-                       debugprint=(2, 0, 1))
 @specializectx
 def literal_search(ctx, pattern, base):
     # pattern starts with a literal character.  this is used
@@ -1337,8 +1274,6 @@ def literal_search(ctx, pattern, base):
     base += 2
     start = ctx.match_start
     while start < ctx.end:
-        ctx.jitdriver_LiteralSearch.jit_merge_point(ctx=ctx, start=start,
-                                          base=base, character=character, pattern=pattern)
         start1 = ctx.next(start)
         if ctx.str(start) == character:
             if sre_match(ctx, pattern, base, start1, None) is not None:
@@ -1347,17 +1282,11 @@ def literal_search(ctx, pattern, base):
         start = start1
     return False
 
-install_jitdriver_spec("CharsetSearch",
-                       greens=['base', 'pattern'],
-                       reds=['start', 'ctx'],
-                       debugprint=(1, 0))
 @specializectx
 def charset_search(ctx, pattern, base):
     # pattern starts with a character from a known set
     start = ctx.match_start
     while start < ctx.end:
-        ctx.jitdriver_CharsetSearch.jit_merge_point(ctx=ctx, start=start,
-                                                    base=base, pattern=pattern)
         if rsre_char.check_charset(ctx, pattern, 5, ctx.str(start)):
             if sre_match(ctx, pattern, base, start, None) is not None:
                 ctx.match_start = start
@@ -1365,10 +1294,6 @@ def charset_search(ctx, pattern, base):
         start = ctx.next(start)
     return False
 
-install_jitdriver_spec('FastSearch',
-                       greens=['i', 'prefix_len', 'pattern'],
-                       reds=['string_position', 'ctx'],
-                       debugprint=(2, 0))
 @specializectx
 def fast_search(ctx, pattern):
     # skips forward in a string as fast as possible using information from
@@ -1382,9 +1307,6 @@ def fast_search(ctx, pattern):
     assert prefix_len >= 0
     i = 0
     while True:
-        ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
-                string_position=string_position, i=i, prefix_len=prefix_len,
-                pattern=pattern)
         char_ord = ctx.str(string_position)
         if char_ord != pattern.pat(7 + i):
             if i > 0:

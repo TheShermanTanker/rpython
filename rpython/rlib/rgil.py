@@ -164,7 +164,6 @@ def release():
         allocate()
         _emulated_gil_holder.release()
 release._gctransformer_hint_cannot_collect_ = True
-release._dont_reach_me_in_del_ = True
 
 def acquire():
     if we_are_translated():
@@ -176,7 +175,6 @@ def acquire():
         _emulated_gil_holder.acquire()
     _after_thread_switch()
 acquire._gctransformer_hint_cannot_collect_ = True
-acquire._dont_reach_me_in_del_ = True
 
 def acquire_maybe_in_new_thread():
     if not we_are_translated():
@@ -187,7 +185,6 @@ def acquire_maybe_in_new_thread():
     rthread.gc_thread_run()
     _after_thread_switch()
 acquire_maybe_in_new_thread._gctransformer_hint_cannot_collect_ = True
-acquire_maybe_in_new_thread._dont_reach_me_in_del_ = True
 
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.
@@ -209,7 +206,6 @@ def yield_thread():
         release()
         acquire()
 yield_thread._gctransformer_hint_close_stack_ = True
-yield_thread._dont_reach_me_in_del_ = True
 yield_thread._dont_inline_ = True
 
 # yield_thread() needs a different hint: _gctransformer_hint_close_stack_.

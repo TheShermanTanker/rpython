@@ -8,11 +8,9 @@
 
 #define VMPROF_CODE_TAG 1        /* <- also in cintf.py */
 #define VMPROF_BLACKHOLE_TAG 2
-#define VMPROF_JITTED_TAG 3
-#define VMPROF_JITTING_TAG 4
-#define VMPROF_GC_TAG 5
-#define VMPROF_ASSEMBLER_TAG 6
-#define VMPROF_NATIVE_TAG 7
+#define VMPROF_GC_TAG 3
+#define VMPROF_ASSEMBLER_TAG 4
+#define VMPROF_NATIVE_TAG 5
 // whatever we want here
 
 typedef struct vmprof_stack_s {

@@ -8,7 +8,7 @@ a drop-in replacement for the 'socket' module.
 # supported by CPython.  See http://bugs.pypy.org/issue1942
 
 from errno import EINVAL
-from rpython.rlib import _rsocket_rffi as _c, jit, rgc
+from rpython.rlib import _rsocket_rffi as _c, rgc
 from rpython.rlib.buffer import LLBuffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import (
@@ -20,9 +20,6 @@ from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
-# Usage of @jit.dont_look_inside in this file is possibly temporary
-# and only because some lltypes declared in _rsocket_rffi choke the
-# JIT's codewriter right now (notably, FixedSizeArray).
 INVALID_SOCKET = _c.INVALID_SOCKET
 
 
@@ -667,7 +664,7 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
-    @jit.dont_look_inside
+    
     def accept(self, inheritable=True):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
@@ -813,7 +810,7 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
 
-    @jit.dont_look_inside
+    
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -828,7 +825,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
-    @jit.dont_look_inside
+    
     def getsockname(self):
         """Return the address of the local endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -843,7 +840,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
-    @jit.dont_look_inside
+    
     def getsockopt(self, level, option, maxlen):
         buf = mallocbuf(maxlen)
         try:
@@ -863,7 +860,7 @@ class RSocket(object):
             lltype.free(buf, flavor='raw')
         return result
 
-    @jit.dont_look_inside
+    
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         # some win32 calls use only a byte to represent a bool
@@ -928,7 +925,7 @@ class RSocket(object):
             return read_bytes
         raise self.error_handler()
 
-    @jit.dont_look_inside
+    
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
@@ -975,7 +972,7 @@ class RSocket(object):
                 [llbuf], ancbufsize, flags)
             return buf.str(nbytes), ancdata, flags, address
 
-    @jit.dont_look_inside
+    
     def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
         if ancbufsize < 0:
             raise RSocketError("invalid ancillary data buffer length")
@@ -1128,7 +1125,7 @@ class RSocket(object):
             raise self.error_handler()
         return res
 
-    @jit.dont_look_inside
+    
     def sendmsg(self, messages, ancillary=None, flags=0, address=None):
         """
         Send data and ancillary on a socket. For use of ancillary data, please check the Unix manual.
@@ -1566,7 +1563,7 @@ class _LockCache(object):
     lock = None
 _lock_cache = _LockCache()
 
-@jit.elidable
+
 def _get_netdb_lock_thread():
     if _lock_cache.lock is None:
         _lock_cache.lock = rthread.allocate_lock()
@@ -1657,7 +1654,7 @@ def getnameinfo(address, flags):
     finally:
         lltype.free(host, flavor='raw')
 
-@jit.dont_look_inside
+
 def getsockopt_int(fd, level, option):
     # XXX almost the same code as RSocket.getsockopt_int
     # some win32 calls use only a byte to represent a bool
@@ -1673,7 +1670,7 @@ def getsockopt_int(fd, level, option):
         result = rffi.cast(lltype.Signed, flag_p[0])
     return result
 
-@jit.dont_look_inside
+
 def get_socket_family(fd):
     """Return the family of a file descriptor."""
     with lltype.scoped_alloc(_c.sockaddr, zero=True) as addr_p, \

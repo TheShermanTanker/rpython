@@ -24,11 +24,7 @@ RPY_EXTERN
 void pypysig_pushback(int signum);
 
 /* When a signal is received, pypysig_counter is set to -1. */
-/* This is a struct for the JIT. See rsignal.py. */
-struct pypysig_long_struct {
-    Signed value;
-};
-RPY_EXTERN struct pypysig_long_struct pypysig_counter;
+RPY_EXTERN Signed pypysig_counter;
 
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
@@ -39,9 +35,9 @@ void *pypysig_getaddr_occurred(void);
 
 inline static char pypysig_check_and_reset(void) {
     /* used by reverse_debugging */
-    char result = --pypysig_counter.value < 0;
+    char result = --pypysig_counter < 0;
     if (result)
-        pypysig_counter.value = 100;
+        pypysig_counter = 100;
     return result;
 }
 

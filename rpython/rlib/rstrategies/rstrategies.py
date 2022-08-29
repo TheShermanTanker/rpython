@@ -1,7 +1,7 @@
 
 import weakref, sys
 from rpython.rlib.rstrategies import logger
-from rpython.rlib import jit, objectmodel, rerased, rarithmetic
+from rpython.rlib import objectmodel, rerased, rarithmetic
 from rpython.rlib.objectmodel import specialize, not_rpython
 
 def make_accessors(strategy='strategy', storage='storage'):
@@ -52,7 +52,6 @@ def strategy(generalize=None, singleton=True):
     def decorator(strategy_class):
         # Patch strategy class: Add generalized_strategy_for and mark as strategy class.
         if generalize:
-            @jit.unroll_safe
             def generalized_strategy_for(self, value):
                 # TODO - optimize this method
                 for strategy in generalize:
@@ -136,7 +135,7 @@ class StrategyFactory(object):
         self.log(w_self, strategy, None, element)
         return strategy
 
-    @jit.unroll_safe
+    
     def strategy_type_for(self, objects):
         """
         Return the best-fitting strategy to hold all given objects.
@@ -257,7 +256,7 @@ class StrategyFactory(object):
                 return 0
         self.strategies.sort(key=get_generalization_depth, reverse=True)
 
-    @jit.elidable
+    
     def strategy_singleton_instance(self, strategy_class):
         return getattr(strategy_class, self.strategy_singleton_field)
 
@@ -330,7 +329,7 @@ class AbstractStrategy(object):
         # This will be overwritten in _patch_strategy_class
         new_strategy._convert_storage_from(w_self, self)
 
-    @jit.unroll_safe
+    
     def _convert_storage_from(self, w_self, previous_strategy):
         # This is a very unefficient (but most generic) way to do this.
         # Subclasses should specialize.
@@ -412,7 +411,7 @@ class SingleValueStrategy(AbstractStrategy):
     def size(self, w_self):
         return self.get_storage(w_self).size
 
-    @jit.unroll_safe
+    
     def insert(self, w_self, index0, list_w):
         storage_obj = self.get_storage(w_self)
         for i in range(len(list_w)):
@@ -434,7 +433,7 @@ class StrategyWithStorage(AbstractStrategy):
         default = self._unwrap(self.default_value())
         self.set_storage(w_self, [default] * initial_size)
 
-    @jit.unroll_safe
+    
     def _convert_storage_from(self, w_self, previous_strategy):
         size = previous_strategy.size(w_self)
         new_storage = [ self._unwrap(previous_strategy.fetch(w_self, i))
@@ -465,7 +464,7 @@ class StrategyWithStorage(AbstractStrategy):
     def size(self, w_self):
         return len(self.get_storage(w_self))
 
-    @jit.unroll_safe
+    
     def insert(self, w_self, start, list_w):
         # This is following Python's behaviour - insert automatically
         # happens at the beginning of an array, even if index is larger

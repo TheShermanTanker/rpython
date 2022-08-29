@@ -41,7 +41,4 @@ RPY_EXTERN long vmprof_get_profile_path(char *, long);
 RPY_EXTERN int vmprof_stop_sampling(void);
 RPY_EXTERN void vmprof_start_sampling(void);
 
-long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
-                                      intptr_t addr, int max_depth);
-
 #define RVMPROF_TRACEBACK_ESTIMATE_N(num_entries)  (2 * (num_entries) + 4)

@@ -164,10 +164,10 @@ If everything worked correctly this should yield an ARM binary. Running this
 binary in the ARM chroot or on an ARM device should produce the output
 ``"Hello World"``.
 
-To translate the full python pypy interpreter with a jit, you can cd into pypy/goal and call
+To translate the full python pypy interpreter, you can cd into pypy/goal and call
 
 ::
 
-  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm targetpypystandalone.py
+  pypy <path to rpython>/rpython/bin/rpython --platform=arm targetpypystandalone.py
 
 

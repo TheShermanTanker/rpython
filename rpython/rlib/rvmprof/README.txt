@@ -26,10 +26,6 @@ but see the docstring of the method in rvmprof.py.
 To support adding new code objects at run-time, whenever a code object is
 instantiated, call the function ``rpython.rlib.rvmprof.register_code()``.
 
-If you need JIT support, you also need to add a jitdriver method
-``get_unique_id(*greenkey)``, where you call
-``rpython.rlib.rvmprof.get_unique_code()``.
-
 
 Enable/disable the profiler at runtime with:
 

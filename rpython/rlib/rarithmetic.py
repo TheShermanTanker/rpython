@@ -730,8 +730,7 @@ class For_r_longfloat_values_Entry(extregistry.ExtRegistryEntry):
 
 
 def int_between(n, m, p):
-    """ check that n <= m < p. This assumes that n <= p. This is useful because
-    the JIT special-cases it. """
+    """ check that n <= m < p. This assumes that n <= p.  """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
     if not objectmodel.we_are_translated():
@@ -739,7 +738,6 @@ def int_between(n, m, p):
     return llop.int_between(lltype.Bool, n, m, p)
 
 def int_force_ge_zero(n):
-    """ The JIT special-cases this too. """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
     n = llop.int_force_ge_zero(lltype.Signed, n)
@@ -748,11 +746,7 @@ def int_force_ge_zero(n):
 
 def int_c_div(x, y):
     """Return the result of the C-style 'x / y'.  This differs from the
-    Python-style division if (x < 0  xor y < 0).  The JIT implements it
-    with a Python-style division followed by correction code.  This
-    is not that bad, because the JIT removes the correction code if
-    x and y are both nonnegative, and if y is any nonnegative constant
-    then the division turns into a rshift or a mul.
+    Python-style division if (x < 0  xor y < 0).
     """
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
